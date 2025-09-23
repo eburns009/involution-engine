@@ -1,8 +1,11 @@
-fastapi==0.115.7
-uvicorn[standard]==0.23.2
+fastapi>=0.109.1
+starlette>=0.47.2
+uvicorn[standard]>=0.23.2
 spiceypy==6.0.0
-numpy==1.26.4
-pydantic==2.5.3
+numpy>=1.26.4,<2
+pydantic>=2.5.3,<3
 slowapi==0.1.9
 pytest==8.4.2
 httpx==0.28.1
+requests>=2.32.4
+types-requests==2.32.4.20250913

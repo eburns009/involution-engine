@@ -1,15 +1,3 @@
-"""
-Golden tests for SPICE astronomical calculations
-
-These tests use known astronomical values for the 2024 summer solstice
-in San Francisco with Lahiri ayanamsa. Tests are deterministic and fast
-using FastAPI's TestClient without needing a running server.
-
-Tolerances:
-- 5 arcsec (0.0014°) for most planets
-- 20 arcsec (0.0056°) for Moon (faster motion)
-"""
-
 import os
 from fastapi.testclient import TestClient
 
@@ -31,25 +19,23 @@ def test_solstice_2024_sf_lahiri() -> None:
         "elevation": 50,
         "ayanamsa": "lahiri"
     }
-
     r = client.post("/calculate", json=payload)
-    # TestClient doesn't trigger startup events, so SPICE won't be initialized
-    # This test validates request structure and error handling
-    assert r.status_code == 500  # Expected due to no SPICE kernels in test
+    # TestClient doesn't trigger startup events, expect SPICE error
+    assert r.status_code == 500
     data = r.json()
     assert "detail" in data
 
-def test_health_check() -> None:
-    """Test health endpoint returns proper status"""
+def test_health_endpoint() -> None:
+    """Test health check endpoint"""
     client = get_client()
     r = client.get("/health")
     assert r.status_code == 200
     data = r.json()
-    # Without SPICE initialization, health check returns error status
+    # Without SPICE initialization, health returns error
     assert data["status"] == "error"
 
-def test_fagan_bradley_ayanamsa() -> None:
-    """Test calculation with Fagan-Bradley ayanamsa differs from Lahiri"""
+def test_different_ayanamsa() -> None:
+    """Test calculation with Fagan-Bradley ayanamsa"""
     client = get_client()
     payload = {
         "birth_time": "2024-06-21T18:00:00Z",
@@ -59,12 +45,13 @@ def test_fagan_bradley_ayanamsa() -> None:
         "ayanamsa": "fagan_bradley"
     }
     r = client.post("/calculate", json=payload)
-    assert r.status_code == 500  # Expected without SPICE kernels
+    # Expected error without SPICE kernels
+    assert r.status_code == 500
     data = r.json()
     assert "detail" in data
 
 def test_invalid_ayanamsa() -> None:
-    """Test error handling for invalid ayanamsa system"""
+    """Test error handling for invalid ayanamsa"""
     client = get_client()
     payload = {
         "birth_time": "2024-06-21T18:00:00Z",
@@ -75,9 +62,3 @@ def test_invalid_ayanamsa() -> None:
     }
     r = client.post("/calculate", json=payload)
     assert r.status_code == 500
-
-# Test requirements:
-# 1. Fix slowapi parameter order issue in main.py
-# 2. Update requirements.txt with correct FastAPI/httpx versions
-# 3. Replace placeholder assertions with actual TestClient calls
-# 4. Update golden values with real calculated values

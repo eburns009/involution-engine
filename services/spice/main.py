@@ -2,11 +2,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 import spiceypy as spice
 import numpy as np
 import os
-from typing import Dict
+from typing import Dict, Any, Callable
 from pathlib import Path
 
 limiter = Limiter(key_func=get_remote_address)
@@ -18,7 +20,18 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_exception_handler(429, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_middleware(SlowAPIMiddleware)
+
+# In tests, disable rate limiting via env
+if os.getenv("DISABLE_RATE_LIMIT", "0") == "1":
+    class _NoopLimiter:
+        enabled = False
+        def limit(self, *a: Any, **k: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+            def deco(fn: Callable[..., Any]) -> Callable[..., Any]: return fn
+            return deco
+    limiter = _NoopLimiter()  # type: ignore[assignment]
+    app.state.limiter = limiter
 
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
 
@@ -43,7 +56,7 @@ class PlanetPosition(BaseModel):
     distance: float
 
 @app.on_event("startup")
-async def initialize_spice():
+async def initialize_spice() -> None:
     """Load SPICE kernels with proper validation"""
     # Resolve relative to the file so dev + container both work
     base = Path(__file__).resolve().parent
@@ -68,12 +81,12 @@ async def initialize_spice():
         print(f"✗ SPICE initialization failed: {e}")
         raise
 
-@app.post("/calculate", response_model=Dict[str, PlanetPosition])
 @limiter.limit("10/minute")
-async def calculate_planetary_positions(req: Request, request: ChartRequest):
+@app.post("/calculate", response_model=Dict[str, PlanetPosition])
+async def calculate_planetary_positions(request: Request, chart: ChartRequest) -> Dict[str, PlanetPosition]:
     """Calculate topocentric sidereal positions using spkcpo"""
     try:
-        et = spice.str2et(request.birth_time)
+        et = spice.str2et(chart.birth_time)
 
         bodies = {
             "Sun": "SUN",                    # 10
@@ -90,14 +103,14 @@ async def calculate_planetary_positions(req: Request, request: ChartRequest):
         for name, body_id in bodies.items():
             # Get topocentric position using corrected SPICE call
             pos_topo_j2000 = topocentric_vec_j2000(
-                body_id, et, request.latitude, request.longitude, request.elevation
+                body_id, et, chart.latitude, chart.longitude, chart.elevation
             )
 
             # Convert to ecliptic of date using SPICE frames
             ecl_pos = convert_to_ecliptic_of_date(pos_topo_j2000, et)
 
             # Apply ayanamsa correction
-            ayanamsa_deg = calculate_ayanamsa(request.ayanamsa, et)
+            ayanamsa_deg = calculate_ayanamsa(chart.ayanamsa, et)
             sidereal_lon = (ecl_pos["longitude"] - ayanamsa_deg) % 360
 
             results[name] = PlanetPosition(
@@ -112,7 +125,7 @@ async def calculate_planetary_positions(req: Request, request: ChartRequest):
         print(f"Calculation error: {e}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
-def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float):
+def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float) -> Any:
     """Calculate topocentric position using spkcpo for proper LT+S corrections"""
     # Earth figure from SPICE
     _, radii = spice.bodvrd("EARTH", "RADII", 3)
@@ -192,16 +205,16 @@ def calculate_ayanamsa(system: str, et: float) -> float:
         raise ValueError(f"Unknown ayanamsa system: {system}")
 
 @app.on_event("shutdown")
-async def cleanup_spice():
+async def cleanup_spice() -> None:
     """Clean up SPICE kernels on shutdown"""
     try:
         spice.kclear()
         print("✓ SPICE kernels cleared")
     except Exception:
-        pass
+        pass  # nosec B110 - Safe to ignore cleanup failures
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check with frame validation"""
     try:
         et = spice.str2et("2024-01-01T00:00:00")
@@ -225,11 +238,9 @@ async def health_check():
         return {"status": "error", "detail": str(e)}
 
 @app.get("/debug")
-async def debug_info():
+async def debug_info() -> Dict[str, Any]:
     """Debug endpoint with detailed configuration info"""
     try:
-        et = spice.str2et("2024-01-01T00:00:00")
-
         # Test targets
         bodies = {
             "Sun": "SUN",
@@ -257,6 +268,7 @@ async def debug_info():
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    import os, uvicorn
+    import os
+    import uvicorn
     if os.getenv("ENV", "dev") == "dev":
         uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

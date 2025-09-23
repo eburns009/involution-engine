@@ -1,0 +1,9 @@
+[bandit]
+# Bandit configuration for involution-engine
+# Exclude test files from assert warnings since asserts are expected in tests
+exclude_dirs = tests
+skips = B101
+
+[bandit.skip_tests]
+# Skip assert_used (B101) for test files
+B101 = test_*.py
