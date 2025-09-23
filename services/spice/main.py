@@ -49,7 +49,7 @@ async def initialize_spice():
         # Verify required frames are available
         et = spice.str2et("2024-01-01T00:00:00")
         spice.pxform("ITRF93", "J2000", et)
-        spice.pxform("J2000", "ECLIPDATE", et)
+        spice.pxform("J2000", "ECLIPJ2000", et)
 
         print(f"✓ SPICE initialized - Toolkit: {spice.tkvrsn('TOOLKIT')}")
         print(f"✓ Kernels loaded: {spice.ktotal('ALL')}")
@@ -97,8 +97,11 @@ async def calculate_planetary_positions(request: ChartRequest):
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
 def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float):
-    """Calculate topocentric position using spkcpo (constant-position observer)"""
-    # Earth figure from SPICE (consistent with kernels)
+    """Calculate topocentric position using simple approach"""
+    # Get geocentric position
+    pos_geo, _ = spice.spkpos(target, et, "J2000", "LT+S", "EARTH")
+
+    # Get observer position in J2000
     _, radii = spice.bodvrd("EARTH", "RADII", 3)
     re, rp = radii[0], radii[2]
     f = (re - rp) / re
@@ -107,26 +110,20 @@ def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float
     lat = np.radians(lat_deg)
     alt_km = elev_m / 1000.0
 
-    # Observer position in ITRF93 (km)
+    # Observer position in ITRF93
     obs_itrf = spice.georec(lon, lat, alt_km, re, f)
 
-    # CORRECTED: Use spkcpo for constant-position observer with LT+S
-    state, lt = spice.spkcpo(
-        target,                    # Target body ID
-        et,                        # Ephemeris time
-        "J2000",                   # Output frame
-        "LT+S",                    # Light-time + stellar aberration
-        obs_itrf,                  # Observer position vector
-        "EARTH",                   # Observer's center body
-        "ITRF93"                   # Frame of observer position
-    )
+    # Transform to J2000
+    transform_matrix = spice.pxform("ITRF93", "J2000", et)
+    obs_j2000 = spice.mxv(transform_matrix, obs_itrf)
 
-    return state[:3]  # Position only (km)
+    # Topocentric = geocentric - observer
+    return pos_geo - obs_j2000
 
 def convert_to_ecliptic_of_date(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
     """Convert to ecliptic coordinates using SPICE frames"""
-    # Transform J2000 → ecliptic of date
-    rot = spice.pxform("J2000", "ECLIPDATE", et)
+    # Transform J2000 → ecliptic J2000 (fixed ecliptic plane)
+    rot = spice.pxform("J2000", "ECLIPJ2000", et)
     ecl_vector = spice.mxv(rot, pos_j2000)
 
     # Convert to spherical coordinates
@@ -168,7 +165,7 @@ async def health_check():
 
         # Test required frame transforms
         spice.pxform("ITRF93", "J2000", et)
-        spice.pxform("J2000", "ECLIPDATE", et)
+        spice.pxform("J2000", "ECLIPJ2000", et)
 
         return {
             "status": "ok",
