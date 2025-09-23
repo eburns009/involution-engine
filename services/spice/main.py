@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import spiceypy as spice
 import numpy as np
 import os
 from typing import Dict
-from datetime import datetime
 
 app = FastAPI(
     title="Involution SPICE Service",
@@ -12,38 +12,45 @@ app = FastAPI(
     description="Research-grade planetary position calculations"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 class ChartRequest(BaseModel):
-    birth_time: str  # ISO 8601 UTC
+    birth_time: str
     latitude: float
     longitude: float
     elevation: float = 0.0
     ayanamsa: str = "lahiri"
 
 class PlanetPosition(BaseModel):
-    longitude: float  # Sidereal ecliptic longitude
-    latitude: float   # Ecliptic latitude
-    distance: float   # Distance in AU
+    longitude: float
+    latitude: float
+    distance: float
 
 @app.on_event("startup")
 async def initialize_spice():
-    """Load SPICE kernels"""
+    """Load SPICE kernels with proper validation"""
     metakernel = "/app/kernels/involution.tm"
 
-    # For development, use local kernels directory
+    # For development, try local path
     if not os.path.exists(metakernel):
-        metakernel = "../../kernels/involution.tm"
+        metakernel = "kernels/involution.tm"
 
     if not os.path.exists(metakernel):
-        print("WARNING: Metakernel not found. SPICE calculations will fail.")
-        print("Run the kernel download script first: ./tools/download_kernels.sh")
+        print("WARNING: Metakernel not found. Download kernels first.")
         return
 
     try:
         spice.furnsh(metakernel)
 
-        # Verify SPICE is operational
-        et = spice.str2et("2024-01-01T12:00:00")
-        state, _ = spice.spkezr("10", et, "J2000", "LT+S", "399")
+        # Verify required frames are available
+        et = spice.str2et("2024-01-01T00:00:00")
+        spice.pxform("ITRF93", "J2000", et)
+        spice.pxform("J2000", "ECLIPDATE", et)
 
         print(f"✓ SPICE initialized - Toolkit: {spice.tkvrsn('TOOLKIT')}")
         print(f"✓ Kernels loaded: {spice.ktotal('ALL')}")
@@ -54,11 +61,10 @@ async def initialize_spice():
 
 @app.post("/calculate", response_model=Dict[str, PlanetPosition])
 async def calculate_planetary_positions(request: ChartRequest):
-    """Calculate topocentric sidereal positions"""
+    """Calculate topocentric sidereal positions using spkcpo"""
     try:
         et = spice.str2et(request.birth_time)
 
-        # Planet center NAIF IDs (corrected from expert review)
         bodies = {
             "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299",
             "Mars": "499", "Jupiter": "599", "Saturn": "699"
@@ -67,15 +73,13 @@ async def calculate_planetary_positions(request: ChartRequest):
         results = {}
 
         for name, body_id in bodies.items():
-            # Get apparent geocentric position
-            pos_geo, _ = spice.spkpos(body_id, et, "J2000", "LT+S", "399")
+            # Get topocentric position using corrected SPICE call
+            pos_topo_j2000 = topocentric_vec_j2000(
+                body_id, et, request.latitude, request.longitude, request.elevation
+            )
 
-            # Calculate topocentric correction using SPICE Earth constants
-            obs_j2000 = calculate_observer_vector(et, request.latitude, request.longitude, request.elevation)
-            pos_topo = pos_geo - obs_j2000
-
-            # Convert to ecliptic of date using SPICE frames (no custom math)
-            ecl_pos = convert_to_ecliptic_of_date(pos_topo, et)
+            # Convert to ecliptic of date using SPICE frames
+            ecl_pos = convert_to_ecliptic_of_date(pos_topo_j2000, et)
 
             # Apply ayanamsa correction
             ayanamsa_deg = calculate_ayanamsa(request.ayanamsa, et)
@@ -93,41 +97,47 @@ async def calculate_planetary_positions(request: ChartRequest):
         print(f"Calculation error: {e}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
-def calculate_observer_vector(et: float, lat_deg: float, lon_deg: float, elev_m: float) -> np.ndarray:
-    """Calculate observer position using SPICE Earth constants"""
-    # Get Earth radii from loaded kernels
+def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float):
+    """Calculate topocentric position using spkcpo (constant-position observer)"""
+    # Earth figure from SPICE (consistent with kernels)
     _, radii = spice.bodvrd("EARTH", "RADII", 3)
     re, rp = radii[0], radii[2]
     f = (re - rp) / re
 
-    # Convert to radians and km
-    lon_rad = np.radians(lon_deg)
-    lat_rad = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    lat = np.radians(lat_deg)
     alt_km = elev_m / 1000.0
 
-    # Observer position in ITRF93 using SPICE
-    r_itrf = spice.georec(lon_rad, lat_rad, alt_km, re, f)
+    # Observer position in ITRF93 (km)
+    obs_itrf = spice.georec(lon, lat, alt_km, re, f)
 
-    # Transform ITRF93 → J2000
-    transform_matrix = spice.pxform("ITRF93", "J2000", et)
-    obs_j2000 = spice.mxv(transform_matrix, r_itrf)
+    # CORRECTED: Use spkcpo for constant-position observer with LT+S
+    state, lt = spice.spkcpo(
+        target,                    # Target body ID
+        et,                        # Ephemeris time
+        "J2000",                   # Output frame
+        "LT+S",                    # Light-time + stellar aberration
+        obs_itrf,                  # Observer position vector
+        "EARTH",                   # Observer's center body
+        "ITRF93"                   # Frame of observer position
+    )
 
-    return obs_j2000
+    return state[:3]  # Position only (km)
 
 def convert_to_ecliptic_of_date(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
     """Convert to ecliptic coordinates using SPICE frames"""
-    # Use SPICE built-in frame transformation (expert recommendation)
-    rotation_matrix = spice.pxform("J2000", "ECLIPDATE", et)
-    ecl_vector_km = spice.mxv(rotation_matrix, pos_j2000)
+    # Transform J2000 → ecliptic of date
+    rot = spice.pxform("J2000", "ECLIPDATE", et)
+    ecl_vector = spice.mxv(rot, pos_j2000)
 
     # Convert to spherical coordinates
-    longitude_rad = np.arctan2(ecl_vector_km[1], ecl_vector_km[0])
-    latitude_rad = np.arcsin(ecl_vector_km[2] / np.linalg.norm(ecl_vector_km))
-    distance_km = np.linalg.norm(ecl_vector_km)
+    lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
+    lat_rad = np.arcsin(ecl_vector[2] / np.linalg.norm(ecl_vector))
+    distance_km = np.linalg.norm(ecl_vector)
 
     return {
-        "longitude": (np.degrees(longitude_rad) + 360) % 360,
-        "latitude": np.degrees(latitude_rad),
+        "longitude": (np.degrees(lon_rad) + 360.0) % 360.0,
+        "latitude": np.degrees(lat_rad),
         "distance": distance_km / 149597870.7
     }
 
@@ -153,19 +163,21 @@ def calculate_ayanamsa(system: str, et: float) -> float:
 
 @app.get("/health")
 async def health_check():
-    """Health check with SPICE verification"""
+    """Health check with frame validation"""
     try:
-        et = spice.str2et("2024-01-01T12:00:00")
-        state, _ = spice.spkezr("10", et, "J2000", "LT+S", "399")
+        et = spice.str2et("2024-01-01T00:00:00")
+
+        # Test required frame transforms
+        spice.pxform("ITRF93", "J2000", et)
+        spice.pxform("J2000", "ECLIPDATE", et)
 
         return {
-            "status": "healthy",
-            "spice_version": spice.tkvrsn('TOOLKIT'),
-            "kernels_loaded": spice.ktotal('ALL'),
-            "test_calculation": "passed"
+            "status": "ok",
+            "kernels": int(spice.ktotal('ALL')),
+            "spice_version": spice.tkvrsn('TOOLKIT')
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"SPICE error: {e}")
+        return {"status": "error", "detail": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

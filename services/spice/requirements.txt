@@ -3,4 +3,3 @@ uvicorn[standard]==0.24.0
 spiceypy==6.0.0
 numpy==1.26.2
 pydantic==2.5.0
-python-multipart==0.0.6
