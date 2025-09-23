@@ -65,8 +65,13 @@ async def calculate_planetary_positions(request: ChartRequest):
         et = spice.str2et(request.birth_time)
 
         bodies = {
-            "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299",
-            "Mars": "499", "Jupiter": "599", "Saturn": "699"
+            "Sun": "SUN",                    # 10
+            "Moon": "MOON",                  # 301
+            "Mercury": "MERCURY BARYCENTER", # 1
+            "Venus": "VENUS BARYCENTER",     # 2
+            "Mars": "MARS BARYCENTER",       # 4
+            "Jupiter": "JUPITER BARYCENTER", # 5
+            "Saturn": "SATURN BARYCENTER",   # 6
         }
 
         results = {}
@@ -99,7 +104,7 @@ async def calculate_planetary_positions(request: ChartRequest):
 def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float):
     """Calculate topocentric position using simple approach"""
     # Get geocentric position
-    pos_geo, _ = spice.spkpos(target, et, "J2000", "LT+S", "EARTH")
+    pos_geo, _ = spice.spkpos(target, et, "J2000", "LT+S", "399")
 
     # Get observer position in J2000
     _, radii = spice.bodvrd("EARTH", "RADII", 3)
