@@ -13,11 +13,14 @@ app = FastAPI(
     description="Research-grade planetary position calculations"
 )
 
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["content-type", "authorization"],
+    allow_credentials=True,
 )
 
 class ChartRequest(BaseModel):
