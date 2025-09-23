@@ -126,10 +126,28 @@ def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float
     return pos_j2000
 
 def convert_to_ecliptic_of_date(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
-    """Convert to ecliptic coordinates using SPICE frames"""
-    # Transform J2000 → ecliptic J2000 (fixed ecliptic plane)
-    rot = spice.pxform("J2000", "ECLIPJ2000", et)
-    ecl_vector = spice.mxv(rot, pos_j2000)
+    """Convert to ecliptic coordinates of date using manual transformation"""
+    # Calculate mean obliquity of ecliptic for the date
+    # Use IAU 1980 formula for mean obliquity
+    jd_tt = spice.j2000() + et / spice.spd()
+    T = (jd_tt - 2451545.0) / 36525.0
+
+    # Mean obliquity in arcseconds, then convert to radians
+    epsilon_arcsec = 23.0 * 3600 + 26.0 * 60 + 21.448 - 46.8150 * T - 0.00059 * T * T + 0.001813 * T * T * T
+    epsilon_rad = np.radians(epsilon_arcsec / 3600.0)
+
+    # Transform J2000 → mean ecliptic of date manually
+    # This is a rotation about the x-axis by the obliquity angle
+    cos_eps = np.cos(epsilon_rad)
+    sin_eps = np.sin(epsilon_rad)
+
+    rot_matrix = np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, cos_eps, sin_eps],
+        [0.0, -sin_eps, cos_eps]
+    ])
+
+    ecl_vector = np.dot(rot_matrix, pos_j2000)
 
     # Convert to spherical coordinates
     lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
