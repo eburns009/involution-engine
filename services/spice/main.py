@@ -190,13 +190,51 @@ async def health_check():
         spice.pxform("ITRF93", "J2000", et)
         spice.pxform("J2000", "ECLIPJ2000", et)
 
+        # Get Earth radii for debugging
+        _, radii = spice.bodvrd("EARTH", "RADII", 3)
+
         return {
             "status": "ok",
             "kernels": int(spice.ktotal('ALL')),
-            "spice_version": spice.tkvrsn('TOOLKIT')
+            "spice_version": spice.tkvrsn('TOOLKIT'),
+            "earth_radii_km": [round(r, 3) for r in radii],
+            "coordinate_system": "ecliptic_of_date",
+            "aberration_correction": "LT+S"
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.get("/debug")
+async def debug_info():
+    """Debug endpoint with detailed configuration info"""
+    try:
+        et = spice.str2et("2024-01-01T00:00:00")
+
+        # Test targets
+        bodies = {
+            "Sun": "SUN",
+            "Moon": "MOON",
+            "Mercury": "MERCURY BARYCENTER",
+            "Venus": "VENUS BARYCENTER",
+            "Mars": "MARS BARYCENTER",
+            "Jupiter": "JUPITER BARYCENTER",
+            "Saturn": "SATURN BARYCENTER",
+        }
+
+        return {
+            "spice_version": spice.tkvrsn('TOOLKIT'),
+            "kernels_loaded": int(spice.ktotal('ALL')),
+            "target_bodies": bodies,
+            "aberration_correction": "LT+S",
+            "reference_frame": "J2000",
+            "observer_frame": "ITRF93",
+            "coordinate_system": "ecliptic_of_date",
+            "obliquity_formula": "IAU_1980",
+            "topocentric_method": "spkcpo",
+            "earth_figure": "SPICE_bodvrd_georec"
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
