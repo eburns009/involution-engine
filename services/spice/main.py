@@ -102,11 +102,8 @@ async def calculate_planetary_positions(request: ChartRequest):
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
 def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float):
-    """Calculate topocentric position using simple approach"""
-    # Get geocentric position
-    pos_geo, _ = spice.spkpos(target, et, "J2000", "LT+S", "399")
-
-    # Get observer position in J2000
+    """Calculate topocentric position using spkcpo for proper LT+S corrections"""
+    # Earth figure from SPICE
     _, radii = spice.bodvrd("EARTH", "RADII", 3)
     re, rp = radii[0], radii[2]
     f = (re - rp) / re
@@ -118,12 +115,15 @@ def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float
     # Observer position in ITRF93
     obs_itrf = spice.georec(lon, lat, alt_km, re, f)
 
-    # Transform to J2000
-    transform_matrix = spice.pxform("ITRF93", "J2000", et)
-    obs_j2000 = spice.mxv(transform_matrix, obs_itrf)
+    # Use spkcpo for proper topocentric calculation with LT+S
+    state, _ = spice.spkcpo(
+        target, et,
+        "J2000", "OBSERVER", "LT+S",
+        obs_itrf, "EARTH", "ITRF93"
+    )
+    pos_j2000 = state[:3]
 
-    # Topocentric = geocentric - observer
-    return pos_geo - obs_j2000
+    return pos_j2000
 
 def convert_to_ecliptic_of_date(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
     """Convert to ecliptic coordinates using SPICE frames"""
