@@ -1,17 +1,24 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 import spiceypy as spice
 import numpy as np
 import os
 from typing import Dict
 from pathlib import Path
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Involution SPICE Service",
     version="1.0.0",
     description="Research-grade planetary position calculations"
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
 
@@ -62,7 +69,8 @@ async def initialize_spice():
         raise
 
 @app.post("/calculate", response_model=Dict[str, PlanetPosition])
-async def calculate_planetary_positions(request: ChartRequest):
+@limiter.limit("10/minute")
+async def calculate_planetary_positions(req: Request, request: ChartRequest):
     """Calculate topocentric sidereal positions using spkcpo"""
     try:
         et = spice.str2et(request.birth_time)
@@ -183,6 +191,15 @@ def calculate_ayanamsa(system: str, et: float) -> float:
     else:
         raise ValueError(f"Unknown ayanamsa system: {system}")
 
+@app.on_event("shutdown")
+async def cleanup_spice():
+    """Clean up SPICE kernels on shutdown"""
+    try:
+        spice.kclear()
+        print("✓ SPICE kernels cleared")
+    except Exception:
+        pass
+
 @app.get("/health")
 async def health_check():
     """Health check with frame validation"""
@@ -240,5 +257,6 @@ async def debug_info():
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os, uvicorn
+    if os.getenv("ENV", "dev") == "dev":
+        uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104
