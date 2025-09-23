@@ -8,7 +8,6 @@ KERNELS_TO_LOAD = (
   '$KERN/lsk/naif0012.tls',
   '$KERN/pck/pck00011.tpc',
   '$KERN/pck/earth_latest_high_prec.bpc',
-  '$KERN/spk/planets/de440.bsp',
-  '$KERN/fk/ecliptic_frames.tf'
+  '$KERN/spk/planets/de440.bsp'
 )
 \begintext
