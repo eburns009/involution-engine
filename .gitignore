@@ -139,5 +139,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 services/spice/kernels/**
 !services/spice/kernels/involution.tm
+!services/spice/kernels/fk/ecliptic_date_frame.tk
 __pycache__/
 node_modules/

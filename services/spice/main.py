@@ -23,6 +23,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(SlowAPIMiddleware)
 
+# SPICE State Management:
+# - CSPICE is NOT thread-safe, use one process per worker
+# - furnsh/kclear ONLY called at startup/shutdown, NEVER mid-request
+# - Global SPICE state is immutable during request processing
+
 # In tests, disable rate limiting via env
 if os.getenv("DISABLE_RATE_LIMIT", "0") == "1":
     class _NoopLimiter:
@@ -57,7 +62,11 @@ class PlanetPosition(BaseModel):
 
 @app.on_event("startup")
 async def initialize_spice() -> None:
-    """Load SPICE kernels with proper validation"""
+    """Load SPICE kernels with proper validation
+
+    CRITICAL: This is the ONLY place where furnsh() is called.
+    SPICE state must remain immutable during request processing.
+    """
     # Resolve relative to the file so dev + container both work
     base = Path(__file__).resolve().parent
     metakernel = str(base / "kernels" / "involution.tm")
@@ -77,6 +86,9 @@ async def initialize_spice() -> None:
         print(f"✓ SPICE initialized - Toolkit: {spice.tkvrsn('TOOLKIT')}")
         print(f"✓ Kernels loaded: {spice.ktotal('ALL')}")
 
+        # Log kernel coverage windows for supply chain verification
+        log_kernel_coverage()
+
     except Exception as e:
         print(f"✗ SPICE initialization failed: {e}")
         raise
@@ -84,7 +96,11 @@ async def initialize_spice() -> None:
 @limiter.limit("10/minute")
 @app.post("/calculate", response_model=Dict[str, PlanetPosition])
 async def calculate_planetary_positions(request: Request, chart: ChartRequest) -> Dict[str, PlanetPosition]:
-    """Calculate topocentric sidereal positions using spkcpo"""
+    """Calculate topocentric sidereal positions using spkcpo
+
+    IMPORTANT: This function only READS from SPICE state.
+    No furnsh/kclear calls are made during request processing.
+    """
     try:
         et = spice.str2et(chart.birth_time)
 
@@ -107,7 +123,7 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
             )
 
             # Convert to ecliptic of date using SPICE frames
-            ecl_pos = convert_to_ecliptic_of_date(pos_topo_j2000, et)
+            ecl_pos = convert_to_ecliptic_of_date_spice(pos_topo_j2000, et)
 
             # Apply ayanamsa correction
             ayanamsa_deg = calculate_ayanamsa(chart.ayanamsa, et)
@@ -149,40 +165,67 @@ def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float
 
     return pos_j2000
 
-def convert_to_ecliptic_of_date(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
-    """Convert to ecliptic coordinates of date using manual transformation"""
-    # Calculate mean obliquity of ecliptic for the date
-    # Use IAU 1980 formula for mean obliquity
-    jd_tt = spice.j2000() + et / spice.spd()
-    T = (jd_tt - 2451545.0) / 36525.0
+def convert_to_ecliptic_of_date_spice(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
+    """Convert to ecliptic coordinates of date using SPICE frames"""
+    try:
+        # Use SPICE frame transformation: J2000 → ECLIPDATE
+        rotation_matrix = spice.pxform("J2000", "ECLIPDATE", et)
 
-    # Mean obliquity in arcseconds, then convert to radians
-    epsilon_arcsec = 23.0 * 3600 + 26.0 * 60 + 21.448 - 46.8150 * T - 0.00059 * T * T + 0.001813 * T * T * T
-    epsilon_rad = np.radians(epsilon_arcsec / 3600.0)
+        # Transform position vector
+        ecl_vector = np.dot(rotation_matrix, pos_j2000)
 
-    # Transform J2000 → mean ecliptic of date manually
-    # This is a rotation about the x-axis by the obliquity angle
-    cos_eps = np.cos(epsilon_rad)
-    sin_eps = np.sin(epsilon_rad)
+        # Convert to spherical coordinates
+        lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
+        lat_rad = np.arcsin(ecl_vector[2] / np.linalg.norm(ecl_vector))
+        distance_km = np.linalg.norm(ecl_vector)
 
-    rot_matrix = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, cos_eps, sin_eps],
-        [0.0, -sin_eps, cos_eps]
-    ])
+        return {
+            "longitude": (np.degrees(lon_rad) + 360.0) % 360.0,
+            "latitude": np.degrees(lat_rad),
+            "distance": distance_km / 149597870.7
+        }
+    except Exception as e:
+        raise RuntimeError(f"SPICE frame transformation failed: {e}")
 
-    ecl_vector = np.dot(rot_matrix, pos_j2000)
+def log_kernel_coverage() -> None:
+    """Log kernel coverage windows to verify complete downloads"""
+    try:
+        bodies = {
+            "Sun": "SUN",
+            "Moon": "MOON",
+            "Mercury": "MERCURY BARYCENTER",
+            "Venus": "VENUS BARYCENTER",
+            "Mars": "MARS BARYCENTER",
+            "Jupiter": "JUPITER BARYCENTER",
+            "Saturn": "SATURN BARYCENTER"
+        }
 
-    # Convert to spherical coordinates
-    lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
-    lat_rad = np.arcsin(ecl_vector[2] / np.linalg.norm(ecl_vector))
-    distance_km = np.linalg.norm(ecl_vector)
+        print("=== Kernel Coverage Verification ===")
 
-    return {
-        "longitude": (np.degrees(lon_rad) + 360.0) % 360.0,
-        "latitude": np.degrees(lat_rad),
-        "distance": distance_km / 149597870.7
-    }
+        for name, body_id in bodies.items():
+            try:
+                # Get coverage windows for this body
+                cell = spice.cell_double(200)  # Create cell for coverage data
+                spice.spkcov("kernels/spk/planets/de440.bsp", int(spice.bodn2c(body_id)), cell)
+
+                # Get coverage intervals
+                intervals = spice.wnfetd(cell, 0) if spice.wncard(cell) > 0 else (0, 0)
+
+                if intervals[0] != 0:
+                    start_utc = spice.et2utc(intervals[0], "ISOC", 0)
+                    end_utc = spice.et2utc(intervals[1], "ISOC", 0)
+                    print(f"✓ {name}: {start_utc} to {end_utc}")
+                else:
+                    print(f"⚠ {name}: No coverage found")
+
+            except Exception as e:
+                print(f"⚠ {name}: Coverage check failed - {e}")
+
+        print("=====================================\n")
+
+    except Exception as e:
+        print(f"⚠ Kernel coverage logging failed: {e}")
+
 
 def calculate_ayanamsa(system: str, et: float) -> float:
     """Calculate ayanamsa for given system"""
@@ -206,7 +249,11 @@ def calculate_ayanamsa(system: str, et: float) -> float:
 
 @app.on_event("shutdown")
 async def cleanup_spice() -> None:
-    """Clean up SPICE kernels on shutdown"""
+    """Clean up SPICE kernels on shutdown
+
+    CRITICAL: This is the ONLY place where kclear() is called.
+    No SPICE state modification during request processing.
+    """
     try:
         spice.kclear()
         print("✓ SPICE kernels cleared")
@@ -219,9 +266,9 @@ async def health_check() -> Dict[str, Any]:
     try:
         et = spice.str2et("2024-01-01T00:00:00")
 
-        # Test required frame transforms
+        # Test required frame transforms (same as /calculate endpoint)
         spice.pxform("ITRF93", "J2000", et)
-        # Note: Using manual ecliptic-of-date calculation, no frame validation needed
+        spice.pxform("J2000", "ECLIPDATE", et)  # Validate ecliptic-of-date frame
 
         # Get Earth radii for debugging
         _, radii = spice.bodvrd("EARTH", "RADII", 3)
