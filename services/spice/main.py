@@ -5,6 +5,7 @@ import spiceypy as spice
 import numpy as np
 import os
 from typing import Dict
+from pathlib import Path
 
 app = FastAPI(
     title="Involution SPICE Service",
@@ -34,11 +35,9 @@ class PlanetPosition(BaseModel):
 @app.on_event("startup")
 async def initialize_spice():
     """Load SPICE kernels with proper validation"""
-    metakernel = "/app/kernels/involution.tm"
-
-    # For development, try local path
-    if not os.path.exists(metakernel):
-        metakernel = "kernels/involution.tm"
+    # Resolve relative to the file so dev + container both work
+    base = Path(__file__).resolve().parent
+    metakernel = str(base / "kernels" / "involution.tm")
 
     if not os.path.exists(metakernel):
         print("WARNING: Metakernel not found. Download kernels first.")

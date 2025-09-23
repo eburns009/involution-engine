@@ -18,7 +18,6 @@ echo "Downloading DE440 planetary ephemeris (114MB)..."
 curl -fsSL https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp \
   -o kernels/spk/planets/de440.bsp
 
-curl -fsSL https://naif.jpl.nasa.gov/pub/naif/generic_kernels/fk/ecliptic_de405_frame.tk \
-  -o kernels/fk/ecliptic_de405_frame.tk
+# Frame kernel already exists in repo
 
 echo "✓ Kernels downloaded successfully"
