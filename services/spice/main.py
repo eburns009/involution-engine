@@ -188,7 +188,7 @@ async def health_check():
 
         # Test required frame transforms
         spice.pxform("ITRF93", "J2000", et)
-        spice.pxform("J2000", "ECLIPJ2000", et)
+        # Note: Using manual ecliptic-of-date calculation, no frame validation needed
 
         # Get Earth radii for debugging
         _, radii = spice.bodvrd("EARTH", "RADII", 3)
