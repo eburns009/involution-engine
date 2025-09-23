@@ -14,7 +14,7 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
     "test": "npm run test --workspaces",
-    "kernels": "./tools/download_kernels.sh"
+    "kernels": "bash services/spice/download_kernels.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
