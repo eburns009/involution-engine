@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "Downloading SPICE kernels..."
-mkdir -p kernels/{lsk,pck,spk/planets,fk}
+mkdir -p kernels/{lsk,pck,spk/planets}
 
 # Download kernels with progress
 curl -fsSL https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls \
@@ -17,7 +17,5 @@ curl -fsSL https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/earth_latest_h
 echo "Downloading DE440 planetary ephemeris (114MB)..."
 curl -fsSL https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp \
   -o kernels/spk/planets/de440.bsp
-
-# Frame kernel already exists in repo
 
 echo "✓ Kernels downloaded successfully"
