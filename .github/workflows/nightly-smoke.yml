@@ -1,0 +1,59 @@
+name: Nightly Smoke
+on:
+  schedule: [{ cron: "0 7 * * *" }]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Production smoke test
+        run: python - <<'PY'
+import requests, os, sys
+BASE = os.environ.get("SPICE_URL", "https://your-spice.example")
+print(f"Testing SPICE service at: {BASE}")
+
+# Health check
+try:
+    r1 = requests.get(f"{BASE}/health", timeout=10)
+    r1.raise_for_status()
+    health = r1.json()
+    print("✓ Health check passed")
+    print(f"  Status: {health.get('status')}")
+    print(f"  Coordinate system: {health.get('coordinate_system')}")
+    print(f"  SPICE version: {health.get('spice_version')}")
+except Exception as e:
+    print(f"✗ Health check failed: {e}")
+    sys.exit(1)
+
+# Calculation test
+try:
+    r2 = requests.post(f"{BASE}/calculate", json={
+        "birth_time": "2024-06-21T18:00:00Z",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "elevation": 50,
+        "ayanamsa": "lahiri"
+    }, timeout=20)
+    r2.raise_for_status()
+    calc = r2.json()
+    print("✓ Calculation test passed")
+    print(f"  Frame: {calc['meta']['ecliptic_frame']}")
+    print(f"  Sun longitude: {calc['data']['Sun']['longitude']:.2f}°")
+    print(f"  Service version: {calc['meta']['service_version']}")
+except Exception as e:
+    print(f"✗ Calculation test failed: {e}")
+    sys.exit(1)
+
+print("🎉 All smoke tests passed!")
+PY
+        env:
+          SPICE_URL: ${{ vars.SPICE_URL || 'http://localhost:8000' }}
