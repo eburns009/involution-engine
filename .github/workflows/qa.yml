@@ -15,8 +15,10 @@ jobs:
     permissions:
       contents: read
     env:
-      DISABLE_RATE_LIMIT: "1"         # disable slowapi during tests
+      DISABLE_RATE_LIMIT: "1"     # disable rate limit during tests
       PYTHONDONTWRITEBYTECODE: "1"
+      # Skip the runtime smoke on PRs to keep CI fast; run it on main pushes
+      QA_SKIP_RUNTIME: ${{ github.event_name == 'pull_request' && '1' || '0' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +33,6 @@ jobs:
         with:
           node-version: "20"
 
-      # Optional: cache pip and npm to speed up subsequent runs
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -48,6 +49,14 @@ jobs:
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             npm-${{ runner.os }}-
+
+      - name: Cache SPICE kernels
+        uses: actions/cache@v4
+        with:
+          path: services/spice/kernels
+          key: kernels-${{ hashFiles('services/spice/checksums.txt') }}
+          restore-keys: |
+            kernels-
 
       - name: Run comprehensive QA
         run: scripts/qa.sh

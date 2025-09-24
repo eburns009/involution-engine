@@ -1,0 +1,6 @@
+# Replace the placeholders with real sha256 sums of the downloaded files.
+# Example format:
+# <sha256sum>  services/spice/kernels/spk/planets/de440.bsp
+# <sha256sum>  services/spice/kernels/lsk/naif0012.tls
+# <sha256sum>  services/spice/kernels/pck/pck00011.tpc
+# <sha256sum>  services/spice/kernels/pck/earth_latest_high_prec.bpc
