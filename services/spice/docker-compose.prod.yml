@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  spice:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - WORKERS=4
+      - ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp/cache:noexec,nosuid,size=100m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Health monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Restart policy
+    restart: unless-stopped

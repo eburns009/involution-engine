@@ -1,0 +1,35 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Test and development
+.pytest_cache/
+.coverage
+test_*.py
+*_test.py
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Large SPICE kernels (download at runtime)
+kernels/spk/planets/de440.bsp
+kernels/pck/earth_latest_high_prec.bpc
+
+# Logs
+*.log

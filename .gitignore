@@ -137,3 +137,16 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+services/spice/kernels/**
+!services/spice/kernels/involution.tm
+__pycache__/
+node_modules/
+
+# SPICE kernels (downloaded by scripts)
+services/spice/kernels/spk/
+services/spice/kernels/pck/*.bpc
+kernels/spk/
+kernels/pck/*.bpc
+.secrets.baseline
+.git-objects.txt
+diagnostics/
