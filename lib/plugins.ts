@@ -1,9 +1,17 @@
 import type { CalculateResponse } from './astroTypes';
 
+export type PluginContext = {
+  birth_time: string;   // ISO UTC Z
+  latitude: number;     // deg
+  longitude: number;    // deg (east +, west -)
+  elevation: number;    // m (not used here)
+  ayanamsa: 'lahiri' | 'fagan_bradley';
+};
+
 export type Plugin = {
   id: string;
   label: string;
-  Panel: (props: { data: CalculateResponse }) => JSX.Element;
+  Panel: (props: { data: CalculateResponse; ctx: PluginContext }) => JSX.Element;
 };
 
 const registry: Plugin[] = [];

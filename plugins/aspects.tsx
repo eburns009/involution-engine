@@ -1,5 +1,5 @@
 'use client';
-import type { Plugin } from '@/lib/plugins';
+import type { Plugin, PluginContext } from '@/lib/plugins';
 import type { CalculateResponse } from '@/lib/astroTypes';
 
 function angleDiff(a: number, b: number): number {
@@ -7,7 +7,7 @@ function angleDiff(a: number, b: number): number {
   return d > 180 ? 360 - d : d;
 }
 
-function Panel({ data }: { data: CalculateResponse }) {
+function Panel({ data, ctx }: { data: CalculateResponse; ctx: PluginContext }) {
   const names = Object.keys(data.data) as (keyof typeof data.data)[];
   const rows: Array<{ a: string; b: string; sep: number; kind: string; orb: number }> = [];
 

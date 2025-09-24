@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -14,8 +14,21 @@ import logging
 import time
 import uuid
 from collections import deque
-from typing import Dict, Any, Callable, AsyncGenerator
+from datetime import datetime, timezone
+from typing import Dict, Any, Callable, AsyncGenerator, Literal, List
 from pathlib import Path
+import math
+
+# Contract Constants
+ECL_FRAME = "ECLIPDATE"
+COORD_SYSTEM = "ecliptic_of_date"
+OBLIQUITY_MODEL = "IAU1980-mean"
+ABCORR = "LT+S"
+KERNEL_SET_TAG = "2024-Q3"
+SERVICE_VERSION = "2.0.0"
+
+# Zodiac support
+Zodiac = Literal["tropical", "sidereal"]
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -188,11 +201,25 @@ app.add_middleware(
 )
 
 class ChartRequest(BaseModel):
-    birth_time: str
-    latitude: float
-    longitude: float
-    elevation: float = 0.0
-    ayanamsa: str = "lahiri"
+    birth_time: datetime = Field(
+        ...,
+        description="ISO 8601 with timezone, e.g. 2024-06-21T18:00:00Z or 2024-06-21T12:00:00-06:00"
+    )
+    latitude: float = Field(..., ge=-90, le=90, description="Degrees, -90..90")
+    longitude: float = Field(..., ge=-180, le=180, description="Degrees, -180..180")
+    elevation: float = Field(0.0, ge=-500, le=10000, description="Meters, -500..10000")
+    # NEW: which zodiac to report in
+    zodiac: Zodiac = "sidereal"
+    # Ayanamsa is only used when zodiac == "sidereal"
+    ayanamsa: Literal["lahiri", "fagan_bradley"] = "lahiri"
+
+    @field_validator("birth_time")
+    @classmethod
+    def ensure_timezone_and_utc(cls, v: datetime) -> datetime:
+        # Must include tzinfo; normalize to UTC for downstream use
+        if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
+            raise ValueError("birth_time must include a timezone (Z or ±HH:MM)")
+        return v.astimezone(timezone.utc)
 
 class PlanetPosition(BaseModel):
     longitude: float
@@ -204,12 +231,48 @@ class ApiMeta(BaseModel):
     spice_version: str
     kernel_set_tag: str
     ecliptic_frame: str
+    zodiac: Zodiac
+    ayanamsa_deg: float | None
     request_id: str
     timestamp: float
 
 class CalculationResponse(BaseModel):
     data: Dict[str, PlanetPosition]
     meta: ApiMeta
+
+# Houses models
+HouseSystem = Literal["placidus", "whole-sign", "equal"]
+McHemisphere = Literal["south", "north", "auto"]
+
+class HousesRequest(BaseModel):
+    birth_time: datetime = Field(..., description="ISO 8601 with tz, e.g. 2024-06-21T18:00:00Z")
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)  # east +
+    elevation: float = Field(0.0, ge=-500, le=10000)
+    zodiac: Zodiac = "sidereal"   # NEW
+    ayanamsa: Literal["lahiri","fagan_bradley"] = "lahiri"
+    system: HouseSystem = "placidus"
+    mc_hemisphere: McHemisphere = "south"
+
+    @field_validator("birth_time")
+    @classmethod
+    def ensure_timezone_and_utc(cls, v: datetime) -> datetime:
+        # Must include tzinfo; normalize to UTC for downstream use
+        if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
+            raise ValueError("birth_time must include a timezone (Z or ±HH:MM)")
+        return v.astimezone(timezone.utc)
+
+class HousesResponse(BaseModel):
+    system: HouseSystem
+    frame: str
+    coordinate_system: str
+    ecliptic_model: str
+    zodiac: Zodiac
+    ayanamsa: str | None
+    ayanamsa_deg: float | None
+    asc: float
+    mc: float
+    cusps: List[float]  # 12 cusp longitudes (deg), 0..360
 
 
 @limiter.limit("10/minute")
@@ -222,11 +285,12 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
     """
     start_time = time.time()
     et = None
-    frame = "ECLIPDATE"
-    abcorr = "LT+S"
+    frame = ECL_FRAME
+    abcorr = ABCORR
 
     try:
-        et = spice.str2et(chart.birth_time)
+        # Convert to SPICE ET from ISO Z (always UTC now)
+        et = spice.str2et(chart.birth_time.isoformat().replace("+00:00", "Z"))
 
         bodies = {
             "Sun": "SUN",                    # 10
@@ -240,6 +304,9 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
 
         results = {}
 
+        # Calculate ayanamsa once if needed
+        ayanamsa_deg = calculate_ayanamsa(chart.ayanamsa, et) if chart.zodiac == "sidereal" else None
+
         for name, body_id in bodies.items():
             body_start_time = time.time()
 
@@ -251,12 +318,15 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
             # Convert to ecliptic of date using SPICE frames
             ecl_pos = convert_to_ecliptic_of_date_spice(pos_topo_j2000, et)
 
-            # Apply ayanamsa correction
-            ayanamsa_deg = calculate_ayanamsa(chart.ayanamsa, et)
-            sidereal_lon = (ecl_pos["longitude"] - ayanamsa_deg) % 360
+            # Apply zodiac-specific longitude reporting
+            tropical_lon = ecl_pos["longitude"]
+            if chart.zodiac == "sidereal":
+                out_lon = (tropical_lon - ayanamsa_deg) % 360
+            else:
+                out_lon = tropical_lon
 
             results[name] = PlanetPosition(
-                longitude=round(sidereal_lon, 6),
+                longitude=round(out_lon, 6),
                 latitude=round(ecl_pos["latitude"], 6),
                 distance=round(ecl_pos["distance"], 8)
             )
@@ -267,14 +337,16 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
 
         # Log overall request
         total_latency_ms = (time.time() - start_time) * 1000
-        log_calculation("ALL_BODIES", et or 0, frame, abcorr, chart.ayanamsa, total_latency_ms, True)
+        log_calculation("ALL_BODIES", et or 0, frame, abcorr, chart.ayanamsa if chart.zodiac == "sidereal" else "tropical", total_latency_ms, True)
 
         # Create meta information
         meta = ApiMeta(
-            service_version="1.0.0",
+            service_version=SERVICE_VERSION,
             spice_version=spice.tkvrsn('TOOLKIT'),
-            kernel_set_tag="2024-Q3",
-            ecliptic_frame=frame,
+            kernel_set_tag=KERNEL_SET_TAG,
+            ecliptic_frame=ECL_FRAME,
+            zodiac=chart.zodiac,
+            ayanamsa_deg=round(ayanamsa_deg, 6) if ayanamsa_deg is not None else None,
             request_id=str(uuid.uuid4()),
             timestamp=time.time()
         )
@@ -284,47 +356,104 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
     except Exception as e:
         # Log error with timing info
         error_latency_ms = (time.time() - start_time) * 1000
-        log_calculation("ERROR", et or 0, frame, abcorr, chart.ayanamsa, error_latency_ms, False, str(e))
+        log_calculation("ERROR", et or 0, frame, abcorr, chart.ayanamsa if chart.zodiac == "sidereal" else "tropical", error_latency_ms, False, str(e))
+
+        msg = str(e)
+        # Map SPICE time parse errors to 422 if anything slips through
+        if "SPICE(BADTIMESTRING)" in msg or "SPICE(INVALIDTIME)" in msg or "SPICE(UNPARSEDTIME)" in msg:
+            raise HTTPException(status_code=422, detail="Invalid birth_time format; use ISO 8601 with timezone (e.g. 2024-06-21T18:00:00Z)")
 
         print(f"Calculation error: {e}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
+def _observer_pos_in_iau_earth(lat_deg: float, lon_deg: float, elev_m: float) -> np.ndarray:
+    """Observer position in the IAU_EARTH body-fixed frame (km)."""
+    # WGS-84-like spheroid; keep consistent with your house math
+    re = 6378.137  # km
+    f  = 1.0/298.257223563
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    alt = elev_m / 1000.0
+    # Geodetic → rectangular in body-fixed
+    x, y, z = spice.georec(lon, lat, alt, re, f)
+    return np.array([x, y, z])
+
 def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float, elev_m: float) -> Any:
     """Calculate topocentric position using spkcpo for proper LT+S corrections"""
-    # Earth figure from SPICE
-    _, radii = spice.bodvrd("EARTH", "RADII", 3)
-    re, rp = radii[0], radii[2]
-    f = (re - rp) / re
+    # Choose observer frame dynamically based on EOP coverage
+    obs_frame = "ITRF93"
+    try:
+        # Test if ITRF93 transform exists at this epoch (requires EOP data)
+        spice.pxform("ITRF93", "J2000", et)
 
-    lon = np.radians(lon_deg)
-    lat = np.radians(lat_deg)
-    alt_km = elev_m / 1000.0
+        # Earth figure from SPICE for ITRF93
+        _, radii = spice.bodvrd("EARTH", "RADII", 3)
+        re, rp = radii[0], radii[2]
+        f = (re - rp) / re
 
-    # Observer position in ITRF93
-    obs_itrf = spice.georec(lon, lat, alt_km, re, f)
+        lon = np.radians(lon_deg)
+        lat = np.radians(lat_deg)
+        alt_km = elev_m / 1000.0
 
-    # Use spkcpo for proper topocentric calculation with LT+S
+        # Observer position in ITRF93
+        obs_pos = spice.georec(lon, lat, alt_km, re, f)
+
+    except Exception:
+        # Fallback for historical dates (e.g., 1962): use IAU_EARTH body-fixed frame
+        obs_frame = "IAU_EARTH"
+        obs_pos = _observer_pos_in_iau_earth(lat_deg, lon_deg, elev_m)
+
+    # Use spkcpo with the chosen frame
     state, _ = spice.spkcpo(
         target, et,
         "J2000", "OBSERVER", "LT+S",
-        obs_itrf, "EARTH", "ITRF93"
+        obs_pos, "EARTH", obs_frame
     )
     pos_j2000 = state[:3]
 
     return pos_j2000
 
+def apply_precession_iau2006(pos_j2000: np.ndarray, T: float) -> np.ndarray:
+    """Apply IAU 2006/2000A precession from J2000.0 to date (T centuries since J2000)"""
+    # IAU 2006 precession angles (arcseconds, converted to radians)
+    zeta_A  = np.radians((2306.2181*T + 0.30188*T**2 + 0.017998*T**3) / 3600.0)
+    z_A     = np.radians((2306.2181*T + 1.09468*T**2 + 0.018203*T**3) / 3600.0)
+    theta_A = np.radians((2004.3109*T - 0.42665*T**2 - 0.041833*T**3) / 3600.0)
+
+    # Rotation matrices - corrected order and signs
+    cos_zeta, sin_zeta = np.cos(-zeta_A), np.sin(-zeta_A)
+    cos_z, sin_z = np.cos(-z_A), np.sin(-z_A)
+    cos_theta, sin_theta = np.cos(theta_A), np.sin(theta_A)
+
+    # P = R3(-z_A) * R2(theta_A) * R3(-zeta_A) applied to J2000 coordinates
+    R1 = np.array([[cos_zeta, sin_zeta, 0], [-sin_zeta, cos_zeta, 0], [0, 0, 1]])  # R3(-zeta_A)
+    R2 = np.array([[cos_theta, 0, -sin_theta], [0, 1, 0], [sin_theta, 0, cos_theta]])  # R2(theta_A)
+    R3 = np.array([[cos_z, sin_z, 0], [-sin_z, cos_z, 0], [0, 0, 1]])  # R3(-z_A)
+
+    P = R3 @ R2 @ R1
+    return P @ pos_j2000
+
 def convert_to_ecliptic_of_date_spice(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
-    """Convert to ecliptic coordinates of date using IAU 1980 obliquity"""
+    """
+    Convert to ecliptic coordinates of date with proper precession:
+    1) J2000 equatorial → mean equatorial of date (precession)
+    2) Mean equatorial of date → ecliptic of date (obliquity rotation)
+    """
     try:
-        # Get Julian date and centuries since J2000.0 for obliquity calculation
+        # Get Julian date and centuries since J2000.0
         jd_tt = spice.j2000() + et / spice.spd()
         T = (jd_tt - 2451545.0) / 36525.0
 
-        # IAU 1980 mean obliquity of the ecliptic formula
+        # 1) Normalize & precess J2000 → mean equator of date
+        r_km = np.linalg.norm(pos_j2000)
+        v = pos_j2000 / r_km
+        v_eq_date = apply_precession_iau2006(v, T)
+
+        # 2) IAU 1980 mean obliquity of the ecliptic
         obliq_deg = 23.43929111 - (46.8150 * T + 0.00059 * T**2 - 0.001813 * T**3) / 3600.0
         obliq_rad = np.radians(obliq_deg)
 
-        # Create rotation matrix from J2000 equatorial to ecliptic of date
+        # Create rotation matrix from equatorial of date to ecliptic of date
         cos_obliq = np.cos(obliq_rad)
         sin_obliq = np.sin(obliq_rad)
 
@@ -334,18 +463,17 @@ def convert_to_ecliptic_of_date_spice(pos_j2000: np.ndarray, et: float) -> Dict[
             [0.0, -sin_obliq, cos_obliq]
         ])
 
-        # Transform position vector
-        ecl_vector = np.dot(rotation_matrix, pos_j2000)
+        # Transform to ecliptic of date
+        v_ecl_date = rotation_matrix @ v_eq_date
 
         # Convert to spherical coordinates
-        r = np.linalg.norm(ecl_vector)
-        lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
-        lat_rad = np.arcsin(ecl_vector[2] / r)
+        lon_rad = np.arctan2(v_ecl_date[1], v_ecl_date[0])
+        lat_rad = np.arcsin(v_ecl_date[2])
 
         return {
             "longitude": (np.degrees(lon_rad) + 360.0) % 360.0,
             "latitude": np.degrees(lat_rad),
-            "distance": r / 149597870.7
+            "distance": r_km / 149597870.7
         }
     except Exception as e:
         raise RuntimeError(f"SPICE frame transformation failed: {e}")
@@ -411,6 +539,171 @@ def calculate_ayanamsa(system: str, et: float) -> float:
         raise ValueError(f"Unknown ayanamsa system: {system}")
 
 
+# Houses calculation helpers
+def _wrap(deg: float) -> float:
+    x = deg % 360.0
+    return x + 360.0 if x < 0 else x
+
+def _atan2d(y: float, x: float) -> float:
+    return _wrap(math.degrees(math.atan2(y, x)))
+
+def _obliquity_deg(jd_tt_like: float) -> float:
+    # Extract obliquity calculation from existing convert_to_ecliptic_of_date_spice function
+    T = (jd_tt_like - 2451545.0) / 36525.0
+    # IAU 1980 mean obliquity of the ecliptic formula
+    obliq_deg = 23.43929111 - (46.8150 * T + 0.00059 * T**2 - 0.001813 * T**3) / 3600.0
+    return obliq_deg
+
+def _jd_from_iso_utc(iso_z: str) -> float:
+    # fast, no external deps
+    dt = datetime.fromisoformat(iso_z.replace("Z", "+00:00"))
+    return dt.timestamp() / 86400.0 + 2440587.5  # Unix epoch to JD (UTC)
+
+def _gmst_deg(jd_ut: float) -> float:
+    # IAU 2006-ish simplified; fine for house geometry
+    T = (jd_ut - 2451545.0) / 36525.0
+    gmst = 280.46061837 + 360.98564736629 * (jd_ut - 2451545.0) + 0.000387933*T*T - (T*T*T)/38710000.0
+    return _wrap(gmst)
+
+def _asc_mc_tropical_and_sidereal(iso_z: str, lat_deg: float, lon_deg: float, ay_name: str, mc_hemisphere: McHemisphere = "south") -> Dict[str, float]:
+    jd = _jd_from_iso_utc(iso_z)
+    eps = math.radians(_obliquity_deg(jd))
+    ay = calculate_ayanamsa(ay_name, spice.str2et(iso_z))  # reuse your helper to stay identical to service
+    gmst = _gmst_deg(jd)
+    lst = math.radians(_wrap(gmst + lon_deg))
+    phi = math.radians(lat_deg)
+
+    # Local triad in equatorial frame
+    z_hat = (math.cos(phi)*math.cos(lst), math.cos(phi)*math.sin(lst), math.sin(phi))
+    e_hat = (-math.sin(lst), math.cos(lst), 0.0)
+    n_hat = (-math.sin(phi)*math.cos(lst), -math.sin(phi)*math.sin(lst), math.cos(phi))
+    s_hat = (-n_hat[0], -n_hat[1], -n_hat[2])
+
+    # Ecliptic plane normal in equatorial coords
+    n_ecl = (0.0, -math.sin(eps), math.cos(eps))
+
+    def cross(a,b): return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
+    def dot(a,b):   return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]
+    def norm(a):    return math.sqrt(dot(a,a))
+    def unit(a):    s = norm(a); return (a[0]/s,a[1]/s,a[2]/s)
+    def rotx(v, ang):
+        c,s = math.cos(ang), math.sin(ang)
+        x,y,z = v; return (x, c*y - s*z, s*y + c*z)
+
+    # Asc: intersection of horizon (normal z_hat) & ecliptic (normal n_ecl) → choose eastern
+    d_asc = unit(cross(n_ecl, z_hat))
+    if dot(e_hat, d_asc) < 0: d_asc = (-d_asc[0], -d_asc[1], -d_asc[2])
+
+    # MC: intersection of meridian (normal e_hat) & ecliptic → choose by hemisphere
+    d_mc = unit(cross(n_ecl, e_hat))
+    if mc_hemisphere == "south":
+        if dot(s_hat, d_mc) < 0: d_mc = (-d_mc[0], -d_mc[1], -d_mc[2])
+    elif mc_hemisphere == "north":
+        if dot(n_hat, d_mc) < 0: d_mc = (-d_mc[0], -d_mc[1], -d_mc[2])
+    else:  # auto
+        # typical: south for φ≥0, north for φ<0
+        pick_south = (lat_deg >= 0.0)
+        ref = s_hat if pick_south else n_hat
+        if dot(ref, d_mc) < 0: d_mc = (-d_mc[0], -d_mc[1], -d_mc[2])
+
+    # Equatorial → Ecliptic-of-date (rotate by -ε about X)
+    de_asc = rotx(d_asc, -eps)
+    de_mc  = rotx(d_mc,  -eps)
+
+    asc_trop = _atan2d(de_asc[1], de_asc[0])
+    mc_trop  = _atan2d(de_mc[1],  de_mc[0])
+
+    asc_sid = _wrap(asc_trop - ay)
+    mc_sid  = _wrap(mc_trop  - ay)
+    return {
+        "asc_tropical": asc_trop, "mc_tropical": mc_trop,
+        "asc": asc_sid, "mc": mc_sid,
+        "ay": ay, "eps_deg": math.degrees(eps), "lst_deg": math.degrees(lst)
+    }
+
+def _placidus_cusps(iso_z: str, lat_deg: float, lon_deg: float, ay_name: str, zodiac: Zodiac, mc_hemisphere: McHemisphere = "south") -> List[float]:
+    """
+    Placidus: divide diurnal semi-arc around MC to get 11/12,
+              divide nocturnal semi-arc using RAMC-30/60 (+180°) to get 2/3.
+    Then enforce oppositions: 5=11+180, 6=12+180, 8=2+180, 9=3+180.
+    """
+    jd = _jd_from_iso_utc(iso_z)
+    eps = math.radians(_obliquity_deg(jd))
+    ay  = calculate_ayanamsa(ay_name, spice.str2et(iso_z))
+    gmst = _gmst_deg(jd)
+    RAMC = math.radians(_wrap(gmst + lon_deg))  # RA of MC
+    phi  = math.radians(lat_deg)
+    cphi = math.cos(phi)
+    if abs(cphi) < 1e-2:
+        raise HTTPException(status_code=422, detail="Placidus undefined near poles (|latitude| too high)")
+
+    def ra_from_hour(h: float) -> float:
+        # α = atan2( sin h, cos h * cos φ )  (correct quadrant)
+        return math.atan2(math.sin(h), math.cos(h) * cphi)
+
+    def ecl_lambda_from_ra(alpha: float) -> float:
+        # β=0 inversion: λ = atan2( sin α / cos ε, cos α )
+        return _atan2d(math.sin(alpha)/math.cos(eps), math.cos(alpha))
+
+    # Diurnal around MC → XI, XII
+    a11 = ra_from_hour(RAMC + math.radians(+30.0))
+    a12 = ra_from_hour(RAMC + math.radians(+60.0))
+    l11_t = ecl_lambda_from_ra(a11)
+    l12_t = ecl_lambda_from_ra(a12)
+
+    # Nocturnal (around IC): houses 2 (RAIC-60), 3 (RAIC-30)
+    RAIC = RAMC + math.pi  # RA of IC
+    a02 = ra_from_hour(RAIC + math.radians(-60.0))
+    a03 = ra_from_hour(RAIC + math.radians(-30.0))
+    l02_t = ecl_lambda_from_ra(a02)
+    l03_t = ecl_lambda_from_ra(a03)
+
+    # Tropical MC & Asc for 10/1
+    l10_t = ecl_lambda_from_ra(RAMC)
+    asc_mc = _asc_mc_tropical_and_sidereal(iso_z, lat_deg, lon_deg, ay_name, mc_hemisphere)
+    l01_t = asc_mc["asc_tropical"]
+
+    # Opposites (tropical)
+    l04_t = _wrap(l10_t + 180.0)
+    l07_t = _wrap(l01_t + 180.0)
+
+    # All tropical cusps first
+    trop_cusps = [l01_t, l02_t, l03_t, l04_t, 0, 0, l07_t, 0, 0, l10_t, l11_t, l12_t]
+
+    # Enforce strict Placidus oppositions (tropical)
+    trop_cusps[4] = _wrap(trop_cusps[10] + 180.0)  # l05 = l11 + 180
+    trop_cusps[5] = _wrap(trop_cusps[11] + 180.0)  # l06 = l12 + 180
+    trop_cusps[7] = _wrap(trop_cusps[1] + 180.0)   # l08 = l02 + 180
+    trop_cusps[8] = _wrap(trop_cusps[2] + 180.0)   # l09 = l03 + 180
+
+    # Apply zodiac conversion
+    return _finalize_cusps(trop_cusps, ay, zodiac)
+
+def _whole_sign_cusps(asc_tropical: float, ay: float, zodiac: Zodiac) -> List[float]:
+    """Whole Sign houses: 30° boundaries starting from Asc sign"""
+    if zodiac == "sidereal":
+        asc_final = _wrap(asc_tropical - ay)
+    else:
+        asc_final = asc_tropical
+    base = math.floor(asc_final/30.0)*30.0
+    return [_wrap(base + 30.0*i) for i in range(12)]
+
+def _equal_cusps(asc_tropical: float, ay: float, zodiac: Zodiac) -> List[float]:
+    """Equal houses: 30° intervals starting from Asc"""
+    if zodiac == "sidereal":
+        asc_final = _wrap(asc_tropical - ay)
+    else:
+        asc_final = asc_tropical
+    return [_wrap(asc_final + 30.0*i) for i in range(12)]
+
+def _finalize_cusps(trop_list: List[float], ay: float, zodiac: Zodiac) -> List[float]:
+    """Finalize cusps based on zodiac - subtract ayanamsa for sidereal, keep tropical as-is"""
+    if zodiac == "sidereal":
+        return [_wrap(x - ay) for x in trop_list]
+    else:
+        return [_wrap(x) for x in trop_list]
+
+
 @app.get("/health")
 async def health_check() -> Dict[str, Any]:
     """Health check with frame validation"""
@@ -424,15 +717,40 @@ async def health_check() -> Dict[str, Any]:
         _, radii = spice.bodvrd("EARTH", "RADII", 3)
 
         return {
-            "status": "ok",
-            "kernels": int(spice.ktotal('ALL')),
-            "spice_version": spice.tkvrsn('TOOLKIT'),
-            "earth_radii_km": [round(r, 3) for r in radii],
-            "coordinate_system": "ecliptic_of_date",
-            "aberration_correction": "LT+S"
+            "status": "healthy",
+            "data": {
+                "kernels_loaded": int(spice.ktotal('ALL')),
+                "earth_radii_km": [round(r, 3) for r in radii]
+            },
+            "meta": {
+                "service_version": SERVICE_VERSION,
+                "spice_version": spice.tkvrsn('TOOLKIT'),
+                "kernel_set_tag": KERNEL_SET_TAG,
+                "ecliptic_frame": ECL_FRAME,
+                "coordinate_system": COORD_SYSTEM,
+                "obliquity_model": OBLIQUITY_MODEL,
+                "aberration_correction": ABCORR,
+                "request_id": str(uuid.uuid4()),
+                "timestamp": time.time()
+            }
         }
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {
+            "status": "error",
+            "data": {},
+            "meta": {
+                "service_version": SERVICE_VERSION,
+                "spice_version": "unknown",
+                "kernel_set_tag": KERNEL_SET_TAG,
+                "ecliptic_frame": ECL_FRAME,
+                "coordinate_system": COORD_SYSTEM,
+                "obliquity_model": OBLIQUITY_MODEL,
+                "aberration_correction": ABCORR,
+                "request_id": str(uuid.uuid4()),
+                "timestamp": time.time()
+            },
+            "error": str(e)
+        }
 
 @app.get("/version")
 async def get_version() -> Dict[str, Any]:
@@ -518,25 +836,88 @@ async def debug_info() -> Dict[str, Any]:
 @app.get("/info")
 async def info() -> Dict[str, Any]:
     """Info endpoint with toolkit version, kernels, and coverage"""
-    import time
     try:
-        data = {
-            "spice_version": spice.tkvrsn("TOOLKIT"),
-            "frame": "ECLIPDATE",
-            "ecliptic_model": "IAU1980-mean",
-            "abcorr": "LT+S",
-            "kernels": [],
-            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
+        kernels = []
 
         # Get loaded kernel information
         for i in range(spice.ktotal("SPK")):
             fn, *_ = spice.kdata(i, "SPK")
-            data["kernels"].append(fn)
+            kernels.append(fn)
 
-        return data
+        return {
+            "status": "ok",
+            "data": {
+                "kernels": kernels,
+                "kernel_count": len(kernels)
+            },
+            "meta": {
+                "service_version": SERVICE_VERSION,
+                "spice_version": spice.tkvrsn("TOOLKIT"),
+                "kernel_set_tag": KERNEL_SET_TAG,
+                "ecliptic_frame": ECL_FRAME,
+                "coordinate_system": COORD_SYSTEM,
+                "obliquity_model": OBLIQUITY_MODEL,
+                "aberration_correction": ABCORR,
+                "request_id": str(uuid.uuid4()),
+                "timestamp": time.time()
+            }
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "status": "error",
+            "data": {},
+            "meta": {
+                "service_version": SERVICE_VERSION,
+                "spice_version": "unknown",
+                "kernel_set_tag": KERNEL_SET_TAG,
+                "ecliptic_frame": ECL_FRAME,
+                "coordinate_system": COORD_SYSTEM,
+                "obliquity_model": OBLIQUITY_MODEL,
+                "aberration_correction": ABCORR,
+                "request_id": str(uuid.uuid4()),
+                "timestamp": time.time()
+            },
+            "error": str(e)
+        }
+
+@app.post("/houses", response_model=HousesResponse)
+async def houses(req: HousesRequest):
+    """Calculate house cusps using Placidus, Whole Sign, or Equal house systems"""
+    # normalize to UTC
+    if req.birth_time.tzinfo is None or req.birth_time.tzinfo.utcoffset(req.birth_time) is None:
+        raise HTTPException(status_code=422, detail="birth_time must include timezone")
+    iso_z = req.birth_time.astimezone(timezone.utc).isoformat().replace("+00:00","Z")
+
+    # Get tropical and sidereal ASC/MC
+    asc_mc = _asc_mc_tropical_and_sidereal(iso_z, req.latitude, req.longitude, req.ayanamsa, req.mc_hemisphere)
+    ayanamsa_deg = asc_mc["ay"] if req.zodiac == "sidereal" else None
+
+    # Choose final ASC/MC based on zodiac
+    if req.zodiac == "sidereal":
+        asc, mc = asc_mc["asc"], asc_mc["mc"]
+    else:
+        asc, mc = asc_mc["asc_tropical"], asc_mc["mc_tropical"]
+
+    if req.system == "whole-sign":
+        cusps = _whole_sign_cusps(asc_mc["asc_tropical"], asc_mc["ay"], req.zodiac)
+    elif req.system == "equal":
+        cusps = _equal_cusps(asc_mc["asc_tropical"], asc_mc["ay"], req.zodiac)
+    else:
+        # placidus
+        if abs(req.latitude) > 66.5:
+            raise HTTPException(status_code=422, detail="Placidus undefined above polar circles (|lat| > ~66.5°)")
+        cusps = _placidus_cusps(iso_z, req.latitude, req.longitude, req.ayanamsa, req.zodiac, req.mc_hemisphere)
+
+    return HousesResponse(
+        system=req.system,
+        frame=ECL_FRAME,
+        coordinate_system=COORD_SYSTEM,
+        ecliptic_model=OBLIQUITY_MODEL,
+        zodiac=req.zodiac,
+        ayanamsa=req.ayanamsa if req.zodiac == "sidereal" else None,
+        ayanamsa_deg=round(ayanamsa_deg, 6) if ayanamsa_deg is not None else None,
+        asc=round(asc, 6), mc=round(mc, 6), cusps=[round(c, 6) for c in cusps]
+    )
 
 if __name__ == "__main__":
     import os
