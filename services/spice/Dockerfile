@@ -44,8 +44,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8000/health || exit 1
 
-# Environment for multi-process model
-ENV WORKERS=${WORKERS:-4}
+# Environment for multi-process model (CSPICE isn't thread-safe)
+ENV WORKERS=${WORKERS:-2}
 
-# Run with multi-process model and security hardening
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers $WORKERS"]
+# Run with gunicorn multi-process for CSPICE thread-safety
+CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --workers $WORKERS --bind 0.0.0.0:8000 --timeout 30"]

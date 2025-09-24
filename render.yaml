@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: involution-spice
+    env: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://your-ui.example
