@@ -29,9 +29,10 @@ RUN if [ ! -f kernels/spk/planets/de440.bsp ]; then \
         ./tools/download_kernels.sh; \
     fi
 
-# Security: Create non-root user
+# Security: Create non-root user and cache directory
 RUN adduser --disabled-password --gecos "" appuser \
-    && mkdir -p /app && chown -R appuser:appuser /app
+    && mkdir -p /app /tmp/cache \
+    && chown -R appuser:appuser /app /tmp/cache
 
 # Switch to non-root user
 USER appuser
@@ -43,5 +44,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Environment for multi-process model
+ENV WORKERS=${WORKERS:-4}
+
+# Run with multi-process model and security hardening
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers $WORKERS"]

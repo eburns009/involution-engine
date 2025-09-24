@@ -142,3 +142,9 @@ services/spice/kernels/**
 !services/spice/kernels/fk/ecliptic_date_frame.tk
 __pycache__/
 node_modules/
+
+# SPICE kernels (downloaded by scripts)
+services/spice/kernels/spk/
+services/spice/kernels/pck/*.bpc
+kernels/spk/
+kernels/pck/*.bpc
