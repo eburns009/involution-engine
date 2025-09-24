@@ -1,0 +1,53 @@
+name: QA
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DISABLE_RATE_LIMIT: "1"         # disable slowapi during tests
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Optional: cache pip and npm to speed up subsequent runs
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('services/spice/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Cache npm
+        if: hashFiles('package-lock.json') != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Run comprehensive QA
+        run: scripts/qa.sh
