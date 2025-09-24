@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -13,7 +14,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, AsyncGenerator
 from pathlib import Path
 
 limiter = Limiter(key_func=get_remote_address)
@@ -112,10 +113,49 @@ def log_calculation(target: str, et: float, frame: str, abcorr: str, ayanamsa: s
 
     logger.info(json.dumps(log_entry))
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup
+    # Resolve relative to the file so dev + container both work
+    base = Path(__file__).resolve().parent
+    metakernel = str(base / "kernels" / "involution.tm")
+
+    if not os.path.exists(metakernel):
+        print("WARNING: Metakernel not found. Download kernels first.")
+        yield
+        return
+
+    try:
+        spice.furnsh(metakernel)
+
+        # Verify required frames are available
+        et = spice.str2et("2024-01-01T00:00:00")
+        spice.pxform("ITRF93", "J2000", et)
+
+        print(f"✓ SPICE initialized - Toolkit: {spice.tkvrsn('TOOLKIT')}")
+        print(f"✓ Kernels loaded: {spice.ktotal('ALL')}")
+
+        # Log kernel coverage windows for supply chain verification
+        log_kernel_coverage()
+
+        yield
+
+    except Exception as e:
+        print(f"✗ SPICE initialization failed: {e}")
+        raise
+    finally:
+        # Shutdown cleanup
+        try:
+            spice.kclear()
+            print("✓ SPICE kernels cleared")
+        except Exception:
+            pass  # nosec B110 - Safe to ignore cleanup failures
+
 app = FastAPI(
     title="Involution SPICE Service",
-    version="1.0.0",
-    description="Research-grade planetary position calculations"
+    version="2.0.0",
+    description="Research-grade planetary position calculations",
+    lifespan=lifespan
 )
 
 app.state.limiter = limiter
@@ -171,38 +211,6 @@ class CalculationResponse(BaseModel):
     data: Dict[str, PlanetPosition]
     meta: ApiMeta
 
-@app.on_event("startup")
-async def initialize_spice() -> None:
-    """Load SPICE kernels with proper validation
-
-    CRITICAL: This is the ONLY place where furnsh() is called.
-    SPICE state must remain immutable during request processing.
-    """
-    # Resolve relative to the file so dev + container both work
-    base = Path(__file__).resolve().parent
-    metakernel = str(base / "kernels" / "involution.tm")
-
-    if not os.path.exists(metakernel):
-        print("WARNING: Metakernel not found. Download kernels first.")
-        return
-
-    try:
-        spice.furnsh(metakernel)
-
-        # Verify required frames are available
-        et = spice.str2et("2024-01-01T00:00:00")
-        spice.pxform("ITRF93", "J2000", et)
-        spice.pxform("J2000", "ECLIPJ2000", et)
-
-        print(f"✓ SPICE initialized - Toolkit: {spice.tkvrsn('TOOLKIT')}")
-        print(f"✓ Kernels loaded: {spice.ktotal('ALL')}")
-
-        # Log kernel coverage windows for supply chain verification
-        log_kernel_coverage()
-
-    except Exception as e:
-        print(f"✗ SPICE initialization failed: {e}")
-        raise
 
 @limiter.limit("10/minute")
 @app.post("/calculate", response_model=CalculationResponse)
@@ -214,7 +222,7 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
     """
     start_time = time.time()
     et = None
-    frame = "ECLIPJ2000"
+    frame = "ECLIPDATE"
     abcorr = "LT+S"
 
     try:
@@ -306,23 +314,38 @@ def topocentric_vec_j2000(target: str, et: float, lat_deg: float, lon_deg: float
     return pos_j2000
 
 def convert_to_ecliptic_of_date_spice(pos_j2000: np.ndarray, et: float) -> Dict[str, float]:
-    """Convert to ecliptic coordinates using SPICE frames"""
+    """Convert to ecliptic coordinates of date using IAU 1980 obliquity"""
     try:
-        # Use SPICE frame transformation: J2000 → ECLIPJ2000
-        rotation_matrix = spice.pxform("J2000", "ECLIPJ2000", et)
+        # Get Julian date and centuries since J2000.0 for obliquity calculation
+        jd_tt = spice.j2000() + et / spice.spd()
+        T = (jd_tt - 2451545.0) / 36525.0
+
+        # IAU 1980 mean obliquity of the ecliptic formula
+        obliq_deg = 23.43929111 - (46.8150 * T + 0.00059 * T**2 - 0.001813 * T**3) / 3600.0
+        obliq_rad = np.radians(obliq_deg)
+
+        # Create rotation matrix from J2000 equatorial to ecliptic of date
+        cos_obliq = np.cos(obliq_rad)
+        sin_obliq = np.sin(obliq_rad)
+
+        rotation_matrix = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, cos_obliq, sin_obliq],
+            [0.0, -sin_obliq, cos_obliq]
+        ])
 
         # Transform position vector
         ecl_vector = np.dot(rotation_matrix, pos_j2000)
 
         # Convert to spherical coordinates
+        r = np.linalg.norm(ecl_vector)
         lon_rad = np.arctan2(ecl_vector[1], ecl_vector[0])
-        lat_rad = np.arcsin(ecl_vector[2] / np.linalg.norm(ecl_vector))
-        distance_km = np.linalg.norm(ecl_vector)
+        lat_rad = np.arcsin(ecl_vector[2] / r)
 
         return {
             "longitude": (np.degrees(lon_rad) + 360.0) % 360.0,
             "latitude": np.degrees(lat_rad),
-            "distance": distance_km / 149597870.7
+            "distance": r / 149597870.7
         }
     except Exception as e:
         raise RuntimeError(f"SPICE frame transformation failed: {e}")
@@ -387,18 +410,6 @@ def calculate_ayanamsa(system: str, et: float) -> float:
     else:
         raise ValueError(f"Unknown ayanamsa system: {system}")
 
-@app.on_event("shutdown")
-async def cleanup_spice() -> None:
-    """Clean up SPICE kernels on shutdown
-
-    CRITICAL: This is the ONLY place where kclear() is called.
-    No SPICE state modification during request processing.
-    """
-    try:
-        spice.kclear()
-        print("✓ SPICE kernels cleared")
-    except Exception:
-        pass  # nosec B110 - Safe to ignore cleanup failures
 
 @app.get("/health")
 async def health_check() -> Dict[str, Any]:
@@ -408,7 +419,6 @@ async def health_check() -> Dict[str, Any]:
 
         # Test required frame transforms (same as /calculate endpoint)
         spice.pxform("ITRF93", "J2000", et)
-        spice.pxform("J2000", "ECLIPJ2000", et)  # Validate ecliptic frame
 
         # Get Earth radii for debugging
         _, radii = spice.bodvrd("EARTH", "RADII", 3)
@@ -418,7 +428,7 @@ async def health_check() -> Dict[str, Any]:
             "kernels": int(spice.ktotal('ALL')),
             "spice_version": spice.tkvrsn('TOOLKIT'),
             "earth_radii_km": [round(r, 3) for r in radii],
-            "coordinate_system": "ecliptic_j2000",
+            "coordinate_system": "ecliptic_of_date",
             "aberration_correction": "LT+S"
         }
     except Exception as e:
@@ -442,7 +452,7 @@ async def get_version() -> Dict[str, Any]:
             "coordinate_frames": {
                 "reference": "J2000",
                 "observer": "ITRF93",
-                "ecliptic": "ECLIPJ2000",
+                "ecliptic": "ECLIPDATE",
                 "aberration_correction": "LT+S"
             },
             "ayanamsa_systems": ["lahiri", "fagan_bradley"],
@@ -497,11 +507,34 @@ async def debug_info() -> Dict[str, Any]:
             "aberration_correction": "LT+S",
             "reference_frame": "J2000",
             "observer_frame": "ITRF93",
-            "coordinate_system": "ecliptic_j2000",
+            "coordinate_system": "ecliptic_of_date",
             "obliquity_formula": "IAU_1980",
             "topocentric_method": "spkcpo",
             "earth_figure": "SPICE_bodvrd_georec"
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/info")
+async def info() -> Dict[str, Any]:
+    """Info endpoint with toolkit version, kernels, and coverage"""
+    import time
+    try:
+        data = {
+            "spice_version": spice.tkvrsn("TOOLKIT"),
+            "frame": "ECLIPDATE",
+            "ecliptic_model": "IAU1980-mean",
+            "abcorr": "LT+S",
+            "kernels": [],
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+        # Get loaded kernel information
+        for i in range(spice.ktotal("SPK")):
+            fn, *_ = spice.kdata(i, "SPK")
+            data["kernels"].append(fn)
+
+        return data
     except Exception as e:
         return {"error": str(e)}
 
