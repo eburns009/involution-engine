@@ -16,7 +16,9 @@ import PluginHost from './PluginHost';
 // Register plugins
 import { registerPlugin } from '@/lib/plugins';
 import { AspectsPlugin } from '@/plugins/aspects';
+import { HousesPlugin } from '@/plugins/houses';
 registerPlugin(AspectsPlugin);
+registerPlugin(HousesPlugin);
 
 const AyanamsaZ = z.enum(['lahiri', 'fagan_bradley']);
 const FormZ = z.object({
@@ -252,7 +254,18 @@ export default function EphemerisForm() {
         )}
 
         {res && <ResultCard res={res} />}
-        {res && <PluginHost data={res} />}
+        {res && (
+          <PluginHost
+            data={res}
+            ctx={{
+              birth_time: localInputToUtcZ(watch('birth_time_local')),
+              latitude: watch('latitude'),
+              longitude: watch('longitude'),
+              elevation: watch('elevation'),
+              ayanamsa: watch('ayanamsa'),
+            }}
+          />
+        )}
       </div>
 
       <SettingsDrawer />

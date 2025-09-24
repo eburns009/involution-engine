@@ -136,6 +136,29 @@ export default function SettingsDrawer() {
                   <option value="dms">Degrees Minutes Seconds (123° 27′ 22″)</option>
                 </select>
               </div>
+
+              {/* House System */}
+              <div>
+                <div className="text-xs text-muted mb-1 font-medium">House System</div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {(['whole-sign', 'equal', 'placidus'] as const).map(h => (
+                    <button
+                      key={h}
+                      onClick={() => setS({ ...s, houseSystem: h })}
+                      className={`rounded-lg border px-3 py-1 capitalize transition-colors ${
+                        s.houseSystem === h
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-bg text-fg border-muted hover:border-accent'
+                      }`}
+                    >
+                      {h.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+                {s.houseSystem === 'placidus' && (
+                  <p className="mt-1 text-xs text-muted">Placidus cusps will use the backend endpoint (coming up).</p>
+                )}
+              </div>
             </div>
           </div>
         </>

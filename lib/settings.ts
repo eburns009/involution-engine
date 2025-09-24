@@ -14,6 +14,7 @@ export const SettingsZ = z.object({
   units: z.object({
     angle: z.enum(['deg', 'dms']).default('deg'),
   }),
+  houseSystem: z.enum(['whole-sign', 'equal', 'placidus']).default('whole-sign'),
 });
 
 export type Settings = z.infer<typeof SettingsZ>;
