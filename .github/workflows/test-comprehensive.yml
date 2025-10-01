@@ -1,0 +1,91 @@
+name: Comprehensive Test Suite
+
+on:
+  pull_request:
+  push:
+    branches: [main, ui/v0.2.0]
+
+jobs:
+  backend-tests:
+    name: Backend Tests (Python)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r services/spice/requirements.txt
+          pip install pytest httpx pytest-cov
+
+      - name: Download SPICE kernels
+        run: bash services/spice/download_kernels.sh
+
+      - name: Run backend tests
+        run: |
+          cd services/spice
+          DISABLE_RATE_LIMIT=1 python -m pytest tests/ -v \
+            --maxfail=5 \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: services/spice/coverage.xml
+          flags: backend
+
+      - name: Security Guard - Block /debug in production
+        run: ./scripts/ci_debug_guard.sh
+
+      - name: SPICE Kernel Transform Smoke Test
+        run: ./scripts/ci_kernel_smoke.sh
+
+      - name: Comprehensive Preflight Check
+        run: ./scripts/preflight.sh
+
+  ui-unit-tests:
+    name: UI Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Vitest unit tests
+        run: npx vitest run --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: frontend
+
+  build-check:
+    name: Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript build check
+        run: npm run build

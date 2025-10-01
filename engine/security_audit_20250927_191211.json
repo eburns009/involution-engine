@@ -1,0 +1,27 @@
+{
+  "audit_timestamp": "2025-09-27T19:12:11Z",
+  "engine_url": "http://localhost:8000",
+  "checks": {
+    "https_enforcement": {
+      "status": "warn",
+      "message": "HTTPS not enforced (acceptable for localhost)",
+      "details": {}
+    },
+    "security_headers": {
+      "status": "fail",
+      "message": "Could not fetch headers from health endpoint",
+      "details": {}
+    },
+    "rate_limiting": {
+      "status": "fail",
+      "message": "Inconsistent response to rapid requests",
+      "details": {}
+    }
+  },
+  "summary": {
+    "total_checks": 3,
+    "passed": 0,
+    "failed": 2,
+    "warnings": 1
+  }
+}

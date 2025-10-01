@@ -1,0 +1,35 @@
+# Test Requirements for Involution Engine
+#
+# Install with: pip install -r tests/requirements-test.txt
+
+# Core testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.1  # Parallel test execution
+pytest-timeout>=2.1.0
+
+# Property-based testing
+hypothesis>=6.82.0
+
+# Performance benchmarking
+pytest-benchmark>=4.0.0
+
+# API contract testing
+schemathesis>=3.19.0  # OpenAPI fuzzing
+requests>=2.31.0
+
+# Monitoring & chaos testing
+responses>=0.23.0  # Mock HTTP responses
+pytest-mock>=3.11.1
+
+# Code quality integration
+pytest-ruff>=0.1.0  # Linting in tests
+pytest-mypy>=0.10.3  # Type checking
+
+# Test reporting
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+
+# Optional: Load testing (not in CI by default)
+# locust>=2.15.0
+# k6>=0.1.0 (requires k6 binary)

@@ -1,0 +1,196 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "involution-engine"
+version = "2.0.0"
+description = "Research-grade astrological calculation engine with topocentric positions and time resolution"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Involution Engine Team"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.1",
+    "starlette>=0.47.2",
+    "uvicorn[standard]>=0.23.2",
+    "gunicorn>=21.2.0",
+    "spiceypy==6.0.0",
+    "numpy>=1.26.4,<2",
+    "pydantic>=2.5.3,<3",
+    "slowapi==0.1.9",
+    "requests>=2.32.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "httpx>=0.28.1",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "bandit>=1.7.5",
+    "pip-audit>=2.6.0",
+    "types-requests>=2.32.4",
+]
+test = [
+    "pytest>=8.4.2",
+    "httpx>=0.28.1",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/involution-engine/involution-engine"
+Documentation = "https://involution-engine.readthedocs.io"
+Repository = "https://github.com/involution-engine/involution-engine"
+Issues = "https://github.com/involution-engine/involution-engine/issues"
+
+# Tool configurations
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.ruff_cache
+  | \.venv
+  | __pycache__
+  | build
+  | dist
+  | node_modules
+)/
+'''
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "B904",  # raise from exceptions - often false positives
+    "C901",  # too complex
+    "ARG002", # unused method argument
+    "ARG001", # unused function argument
+    "F821",  # undefined name (handled by mypy)
+    "E722",  # bare except (sometimes necessary for compatibility)
+]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "node_modules",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ARG", "S101"]  # Allow unused args and asserts in tests
+"engine/main.py" = ["B008", "F401"]  # Allow function calls in FastAPI defaults
+"engine/time_resolver_v2.py" = ["F821", "E722"]  # Allow undefined names and bare except
+
+[tool.ruff.lint.isort]
+known-first-party = ["engine", "tests"]
+force-single-line = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+explicit_package_bases = true
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = [
+    "spiceypy.*",
+    "slowapi.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "-ra",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "golden: marks tests as golden case validation",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "node_modules", ".git"]
+skips = ["B101", "B601"]  # Skip assert_used and shell injection (false positives)
+
+[tool.coverage.run]
+source = ["engine"]
+omit = [
+    "*/tests/*",
+    "*/node_modules/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

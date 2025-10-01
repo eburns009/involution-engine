@@ -1,0 +1,440 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'server/**'
+      - 'engine/**'
+      - '.github/workflows/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'server/**'
+      - 'engine/**'
+      - '.github/workflows/**'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Gate 1: Code Quality and Linting
+  code-quality:
+    name: Code Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+
+      - name: Code formatting check (Black)
+        run: |
+          echo "🎨 Checking code formatting..."
+          black --check --diff server/
+          echo "✅ Code formatting passed"
+
+      - name: Import sorting check (isort)
+        run: |
+          echo "📦 Checking import sorting..."
+          isort --check-only --diff server/
+          echo "✅ Import sorting passed"
+
+      - name: Linting (flake8)
+        run: |
+          echo "🔍 Running linting checks..."
+          flake8 server/ --max-line-length=100 --extend-ignore=E203,W503
+          echo "✅ Linting passed"
+
+      - name: Type checking (mypy)
+        run: |
+          echo "🔍 Running type checks..."
+          cd server && mypy app/ --ignore-missing-imports
+          echo "✅ Type checking passed"
+
+  # Gate 2: Unit Tests
+  unit-tests:
+    name: Unit Tests Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cd server && pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-xdist
+
+      - name: Run unit tests
+        run: |
+          echo "🧪 Running unit tests..."
+          cd server
+          python -m pytest tests/ -v \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80 \
+            -x
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./server/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  # Gate 3: Integration Tests
+  integration-tests:
+    name: Integration Tests Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cd server && pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Start time resolver service
+        run: |
+          cd time_resolver
+          python -m pip install -r requirements.txt
+          python -m uvicorn main:app --host 0.0.0.0 --port 5000 &
+          echo "Time resolver started on port 5000"
+
+      - name: Start main engine
+        run: |
+          cd server
+          export TIME_RESOLVER_URL="http://localhost:5000"
+          export REDIS_URL="redis://localhost:6379"
+          export DISABLE_RATE_LIMIT="1"
+          python -m uvicorn main:app --host 0.0.0.0 --port 8080 &
+          echo "Main engine started on port 8080"
+
+      - name: Wait for services
+        run: |
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+
+          # Check time resolver health
+          curl -f http://localhost:5000/healthz || exit 1
+          echo "✅ Time resolver healthy"
+
+          # Check main engine health
+          curl -f http://localhost:8080/healthz || exit 1
+          echo "✅ Main engine healthy"
+
+      - name: Run integration tests
+        run: |
+          echo "🔗 Running integration tests..."
+          cd server
+          python -m pytest tests/integration/ -v \
+            --tb=short \
+            -x
+
+  # Gate 4: Accuracy Validation
+  accuracy-validation:
+    name: Accuracy Validation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cd server && pip install -r requirements.txt
+
+      - name: Start services for accuracy testing
+        run: |
+          # Start time resolver
+          cd time_resolver
+          python -m pip install -r requirements.txt
+          python -m uvicorn main:app --host 0.0.0.0 --port 5000 &
+
+          # Start main engine
+          cd server
+          export TIME_RESOLVER_URL="http://localhost:5000"
+          export DISABLE_RATE_LIMIT="1"
+          python -m uvicorn main:app --host 0.0.0.0 --port 8080 &
+
+          sleep 10
+
+      - name: Validate against golden dataset
+        run: |
+          echo "🎯 Validating accuracy against golden dataset..."
+          cd server
+
+          # Run accuracy tests with golden data
+          python -c "
+import requests
+import json
+
+# Test Fort Knox 1962 golden data point
+response = requests.post('http://localhost:8080/v1/positions', json={
+    'when': {
+        'local_datetime': '1962-07-02T23:33:00',
+        'place': {
+            'lat': 37.840347,
+            'lon': -85.949127
+        }
+    },
+    'system': 'tropical',
+    'bodies': ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn']
+})
+
+if response.status_code != 200:
+    print(f'❌ API request failed: {response.status_code}')
+    exit(1)
+
+data = response.json()
+bodies = {body['name']: body for body in data['bodies']}
+
+# Validate Sun position (known value: ~281.0 degrees)
+sun_lon = bodies['Sun']['lon_deg']
+if not (280.0 <= sun_lon <= 282.0):
+    print(f'❌ Sun longitude out of expected range: {sun_lon}')
+    exit(1)
+
+print(f'✅ Accuracy validation passed - Sun: {sun_lon:.6f}°')
+"
+
+      - name: Performance benchmark
+        run: |
+          echo "⚡ Running performance benchmarks..."
+
+          # Test response time
+          start_time=$(date +%s%3N)
+          curl -s -X POST http://localhost:8080/v1/positions \
+            -H "Content-Type: application/json" \
+            -d '{
+              "when": {"utc": "2023-12-25T12:00:00Z"},
+              "system": "tropical",
+              "bodies": ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
+            }' > /dev/null
+          end_time=$(date +%s%3N)
+          response_time=$((end_time - start_time))
+
+          echo "Response time: ${response_time}ms"
+
+          if [ $response_time -gt 200 ]; then
+            echo "❌ Performance gate failed: ${response_time}ms > 200ms threshold"
+            exit 1
+          fi
+
+          echo "✅ Performance benchmark passed"
+
+  # Gate 5: Security Checks
+  security-checks:
+    name: Security Checks Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety bandit
+
+      - name: Dependency vulnerability scan
+        run: |
+          echo "🔒 Scanning dependencies for vulnerabilities..."
+          cd server
+          safety check -r requirements.txt --json || {
+            echo "❌ Vulnerable dependencies found"
+            exit 1
+          }
+          echo "✅ Dependency scan passed"
+
+      - name: Static security analysis
+        run: |
+          echo "🛡️ Running static security analysis..."
+          bandit -r server/app/ -f json || {
+            echo "❌ Security issues found"
+            exit 1
+          }
+          echo "✅ Security analysis passed"
+
+      - name: Secrets detection
+        run: |
+          echo "🔍 Scanning for secrets..."
+
+          # Check for potential secrets in code
+          if grep -r -i "password\|secret\|key\|token" --include="*.py" server/ | \
+             grep -v "test" | grep -v "example" | grep -v "SECRET_KEY.*settings" | \
+             grep -v "# Example\|# Sample"; then
+            echo "❌ Potential secrets found in code"
+            exit 1
+          fi
+
+          echo "✅ Secrets scan passed"
+
+  # Gate 6: API Contract Validation
+  api-contract:
+    name: API Contract Validation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cd server && pip install -r requirements.txt
+
+      - name: Start engine for contract testing
+        run: |
+          cd server
+          export DISABLE_RATE_LIMIT="1"
+          python -m uvicorn main:app --host 0.0.0.0 --port 8080 &
+          sleep 8
+
+      - name: Validate API contracts
+        run: |
+          echo "📋 Validating API contracts..."
+
+          # Test required endpoints exist and return correct structure
+          echo "Testing /healthz endpoint..."
+          response=$(curl -s http://localhost:8080/healthz)
+          if ! echo "$response" | grep -q "healthy"; then
+            echo "❌ Health endpoint failed"
+            exit 1
+          fi
+
+          echo "Testing /v1/positions endpoint structure..."
+          response=$(curl -s -X POST http://localhost:8080/v1/positions \
+            -H "Content-Type: application/json" \
+            -d '{
+              "when": {"utc": "2023-12-25T12:00:00Z"},
+              "system": "tropical",
+              "bodies": ["Sun"]
+            }')
+
+          # Validate response structure
+          if ! echo "$response" | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    assert 'bodies' in data
+    assert 'utc' in data
+    assert len(data['bodies']) == 1
+    assert 'name' in data['bodies'][0]
+    assert 'lon_deg' in data['bodies'][0]
+    print('✅ Response structure valid')
+except Exception as e:
+    print(f'❌ Invalid response structure: {e}')
+    sys.exit(1)
+"; then
+            exit 1
+          fi
+
+          echo "✅ API contract validation passed"
+
+  # Summary Gate
+  quality-summary:
+    name: Quality Gates Summary
+    runs-on: ubuntu-latest
+    needs: [code-quality, unit-tests, integration-tests, accuracy-validation, security-checks, api-contract]
+    if: always()
+
+    steps:
+      - name: Check all gates status
+        run: |
+          echo "📊 Quality Gates Summary"
+          echo "======================="
+
+          GATES=(
+            "code-quality:${{ needs.code-quality.result }}"
+            "unit-tests:${{ needs.unit-tests.result }}"
+            "integration-tests:${{ needs.integration-tests.result }}"
+            "accuracy-validation:${{ needs.accuracy-validation.result }}"
+            "security-checks:${{ needs.security-checks.result }}"
+            "api-contract:${{ needs.api-contract.result }}"
+          )
+
+          FAILED_GATES=()
+          PASSED_GATES=()
+
+          for gate in "${GATES[@]}"; do
+            name="${gate%%:*}"
+            status="${gate##*:}"
+
+            if [[ "$status" == "success" ]]; then
+              echo "✅ $name"
+              PASSED_GATES+=("$name")
+            else
+              echo "❌ $name ($status)"
+              FAILED_GATES+=("$name")
+            fi
+          done
+
+          echo ""
+          echo "Passed: ${#PASSED_GATES[@]}/6 gates"
+
+          if [[ ${#FAILED_GATES[@]} -gt 0 ]]; then
+            echo "❌ Quality gates failed. Cannot proceed with merge/release."
+            echo "Failed gates: ${FAILED_GATES[*]}"
+            exit 1
+          else
+            echo "🎉 All quality gates passed! Ready for merge/release."
+          fi

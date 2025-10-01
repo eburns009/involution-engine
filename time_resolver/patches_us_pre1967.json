@@ -1,0 +1,249 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Historical timezone patches for US pre-1967 Standard Time Act",
+    "source": "Historical research of local time practices before federal standardization",
+    "last_updated": "2024-01-01"
+  },
+  "patches": {
+    "kentucky_louisville_area": {
+      "description": "Louisville, Kentucky area used Central Standard Time before 1961",
+      "coordinates": {
+        "min_lat": 37.5,
+        "max_lat": 38.5,
+        "min_lon": -86.5,
+        "max_lon": -84.5
+      },
+      "date_range": {
+        "start": "1883-11-18",
+        "end": "1961-07-23"
+      },
+      "override": {
+        "zone_id": "America/Chicago",
+        "offset_seconds": -21600,
+        "dst_rules": "us_standard"
+      },
+      "reason": "Louisville used Central Time before switching to Eastern in 1961",
+      "confidence": "high",
+      "sources": ["Louisville Courier-Journal archives", "Kentucky State Archives"]
+    },
+    "michigan_upper_peninsula": {
+      "description": "Upper Peninsula Michigan used Central Time before 1973",
+      "coordinates": {
+        "min_lat": 45.0,
+        "max_lat": 47.5,
+        "min_lon": -90.5,
+        "max_lon": -84.0
+      },
+      "date_range": {
+        "start": "1883-11-18",
+        "end": "1973-04-29"
+      },
+      "override": {
+        "zone_id": "America/Chicago",
+        "offset_seconds": -21600,
+        "dst_rules": "us_standard"
+      },
+      "reason": "Upper Peninsula used Central Time until 1973",
+      "confidence": "high",
+      "sources": ["Michigan Historical Society", "USNO records"]
+    },
+    "indiana_northwest": {
+      "description": "Northwest Indiana counties used Central Time consistently",
+      "coordinates": {
+        "min_lat": 41.0,
+        "max_lat": 41.8,
+        "min_lon": -87.8,
+        "max_lon": -86.8
+      },
+      "date_range": {
+        "start": "1883-11-18",
+        "end": "2006-04-02"
+      },
+      "override": {
+        "zone_id": "America/Chicago",
+        "offset_seconds": -21600,
+        "dst_rules": "chicago_historical"
+      },
+      "reason": "Northwest Indiana industrially tied to Chicago",
+      "confidence": "high",
+      "sources": ["Indiana Historical Bureau", "Chicago Tribune archives"]
+    },
+    "arizona_pre_1968": {
+      "description": "Most of Arizona observed DST before 1968",
+      "coordinates": {
+        "min_lat": 31.0,
+        "max_lat": 37.0,
+        "min_lon": -114.8,
+        "max_lon": -109.0
+      },
+      "date_range": {
+        "start": "1942-02-09",
+        "end": "1967-10-29"
+      },
+      "override": {
+        "zone_id": "America/Phoenix",
+        "offset_seconds": -25200,
+        "dst_rules": "us_standard"
+      },
+      "reason": "Arizona observed DST during WWII and until 1967",
+      "confidence": "medium",
+      "sources": ["Arizona Republic archives", "State of Arizona records"]
+    },
+    "hawaii_territorial": {
+      "description": "Hawaii used Hawaiian Standard Time (HST) as territory",
+      "coordinates": {
+        "min_lat": 18.9,
+        "max_lat": 22.3,
+        "min_lon": -160.3,
+        "max_lon": -154.8
+      },
+      "date_range": {
+        "start": "1900-04-30",
+        "end": "1959-08-21"
+      },
+      "override": {
+        "zone_id": "Pacific/Honolulu",
+        "offset_seconds": -36000,
+        "dst_rules": "none"
+      },
+      "reason": "Territorial Hawaii maintained consistent HST",
+      "confidence": "high",
+      "sources": ["Hawaiian Historical Society", "US Naval Observatory"]
+    },
+    "kentucky_fort_knox_area": {
+      "description": "Fort Knox, Kentucky area used Eastern Standard Time through 1962",
+      "coordinates": {
+        "min_lat": 37.5,
+        "max_lat": 38.2,
+        "min_lon": -86.2,
+        "max_lon": -85.5
+      },
+      "date_range": {
+        "start": "1883-11-18",
+        "end": "1962-12-31"
+      },
+      "override": {
+        "zone_id": "America/New_York",
+        "offset_seconds": -18000,
+        "dst_rules": "none"
+      },
+      "reason": "Fort Knox area used EST year-round before DST adoption",
+      "confidence": "medium",
+      "sources": ["Fort Knox Historical Archives", "Kentucky State Records"]
+    },
+    "nyc_war_time_1943": {
+      "description": "New York City War Time during WWII",
+      "coordinates": {
+        "min_lat": 40.5,
+        "max_lat": 41.0,
+        "min_lon": -74.5,
+        "max_lon": -73.5
+      },
+      "date_range": {
+        "start": "1942-02-09",
+        "end": "1945-09-30"
+      },
+      "override": {
+        "zone_id": "America/New_York",
+        "offset_seconds": -14400,
+        "dst_rules": "war_time"
+      },
+      "reason": "NYC observed year-round War Time (EWT) during WWII",
+      "confidence": "high",
+      "sources": ["US Naval Observatory", "NYC Municipal Archives"]
+    },
+    "dublin_1940_bst": {
+      "description": "Dublin Summer Time during WWII era",
+      "coordinates": {
+        "min_lat": 53.2,
+        "max_lat": 53.5,
+        "min_lon": -6.5,
+        "max_lon": -6.0
+      },
+      "date_range": {
+        "start": "1940-05-25",
+        "end": "1940-10-07"
+      },
+      "override": {
+        "zone_id": "Europe/Dublin",
+        "offset_seconds": 3600,
+        "dst_rules": "uk_wartime"
+      },
+      "reason": "Dublin observed British Summer Time during WWII",
+      "confidence": "high",
+      "sources": ["Irish Met Service", "UK National Archives"]
+    },
+    "newfoundland_1940": {
+      "description": "Newfoundland Standard Time before Canadian confederation",
+      "coordinates": {
+        "min_lat": 46.5,
+        "max_lat": 51.8,
+        "min_lon": -59.0,
+        "max_lon": -52.5
+      },
+      "date_range": {
+        "start": "1900-01-01",
+        "end": "1949-03-31"
+      },
+      "override": {
+        "zone_id": "America/St_Johns",
+        "offset_seconds": -12600,
+        "dst_rules": "none"
+      },
+      "reason": "Newfoundland used NST (UTC-3:30) before joining Canada",
+      "confidence": "high",
+      "sources": ["Newfoundland Archives", "Canadian National Archives"]
+    },
+    "north_dakota_southwest": {
+      "description": "Southwest North Dakota used Mountain Time before 2003",
+      "coordinates": {
+        "min_lat": 46.0,
+        "max_lat": 47.5,
+        "min_lon": -104.1,
+        "max_lon": -103.0
+      },
+      "date_range": {
+        "start": "1883-11-18",
+        "end": "2003-10-26"
+      },
+      "override": {
+        "zone_id": "America/Denver",
+        "offset_seconds": -25200,
+        "dst_rules": "us_standard"
+      },
+      "reason": "Mercer County area used Mountain Time until 2003",
+      "confidence": "medium",
+      "sources": ["North Dakota Historical Society"]
+    }
+  },
+  "dst_rules": {
+    "us_standard": {
+      "description": "Standard US DST rules 1942-1966",
+      "start_rule": "last Sunday in April",
+      "end_rule": "last Sunday in October",
+      "offset_minutes": 60
+    },
+    "chicago_historical": {
+      "description": "Chicago area DST rules with local variations",
+      "start_rule": "last Sunday in April",
+      "end_rule": "last Sunday in October",
+      "offset_minutes": 60,
+      "notes": "Some years had extended DST periods"
+    },
+    "war_time": {
+      "description": "WWII War Time - year-round DST",
+      "start_rule": "February 9, 1942",
+      "end_rule": "September 30, 1945",
+      "offset_minutes": 60,
+      "notes": "Continuous daylight time during wartime"
+    },
+    "uk_wartime": {
+      "description": "UK/Ireland wartime summer time rules",
+      "start_rule": "last Sunday in May",
+      "end_rule": "first Sunday in October",
+      "offset_minutes": 60,
+      "notes": "British Summer Time during WWII"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "description": "Example time resolution request for Fort Knox 1962",
+  "request": {
+    "method": "POST",
+    "url": "/v1/time/resolve",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "local_datetime": "1962-07-02T23:33:00",
+      "place": {
+        "name": "Fort Knox, Kentucky",
+        "lat": 37.840347,
+        "lon": -85.949127
+      },
+      "parity_profile": "strict_history"
+    }
+  },
+  "expected_response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "ETag": "\"abc123def456\"",
+      "Cache-Control": "public, max-age=86400"
+    },
+    "body": {
+      "utc": "1962-07-03T04:33:00Z",
+      "provenance": {
+        "tzdb_version": "2025.1",
+        "patch_version": "patches-e868200c",
+        "parity_profile": "strict_history"
+      }
+    }
+  },
+  "notes": [
+    "This example demonstrates timezone resolution for mid-20th century",
+    "Fort Knox was in Central Standard Time (UTC-6) in 1962",
+    "No daylight saving time was observed at this location/date",
+    "The 'strict_history' parity profile ensures historical accuracy"
+  ]
+}

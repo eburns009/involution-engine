@@ -1,0 +1,23 @@
+{
+  "Sun": {
+    "lambda_deg": 100.738887
+  },
+  "Moon": {
+    "lambda_deg": 114.10585
+  },
+  "Mercury": {
+    "lambda_deg": 79.199998
+  },
+  "Venus": {
+    "lambda_deg": 138.681597
+  },
+  "Mars": {
+    "lambda_deg": 55.736761
+  },
+  "Jupiter": {
+    "lambda_deg": 342.692777
+  },
+  "Saturn": {
+    "lambda_deg": 310.053976
+  }
+}

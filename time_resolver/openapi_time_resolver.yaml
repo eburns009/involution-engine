@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Time Resolver API
+  description: Historical timezone resolution for astrological calculations
+  version: 1.0.0
+
+paths:
+  /v1/time/resolve:
+    post:
+      summary: Resolve historical timezone for local datetime
+      description: |
+        Convert local datetime + coordinates to UTC with historical timezone rules.
+        Supports multiple parity profiles for compatibility with different astrological software.
+      operationId: resolve_time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeResolveRequest'
+      responses:
+        '200':
+          description: Successfully resolved timezone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeResolveResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    TimeResolveRequest:
+      type: object
+      required:
+        - local_datetime
+        - latitude
+        - longitude
+      properties:
+        local_datetime:
+          type: string
+          format: date-time
+          description: Local datetime (ISO 8601 format without timezone)
+          example: "1962-07-02T23:33:00"
+        latitude:
+          type: number
+          minimum: -90.0
+          maximum: 90.0
+          description: Latitude in degrees
+          example: 37.840347
+        longitude:
+          type: number
+          minimum: -180.0
+          maximum: 180.0
+          description: Longitude in degrees
+          example: -85.949127
+        parity_profile:
+          type: string
+          enum:
+            - strict_history
+            - astro_com
+            - clairvision
+            - as_entered
+          default: strict_history
+          description: |
+            Resolution mode:
+            - strict_history: Honor historical rules + patches (historian-accurate)
+            - astro_com: Mimic Astro.com legacy assumptions
+            - clairvision: Mimic Clairvision legacy assumptions
+            - as_entered: Trust user-provided label/offset (with warnings)
+        user_provided_zone:
+          type: string
+          description: User-provided timezone identifier (for as_entered mode)
+          example: "EST"
+        user_provided_offset:
+          type: integer
+          description: User-provided UTC offset in seconds (for as_entered mode)
+          example: -18000
+
+    TimeResolveResponse:
+      type: object
+      required:
+        - utc
+        - zone_id
+        - offset_seconds
+        - dst_active
+        - confidence
+        - reason
+        - provenance
+      properties:
+        utc:
+          type: string
+          format: date-time
+          description: UTC datetime in ISO 8601 format
+          example: "1962-07-03T03:33:00Z"
+        zone_id:
+          type: string
+          description: IANA timezone identifier
+          example: "America/New_York"
+        offset_seconds:
+          type: integer
+          description: UTC offset in seconds (negative for west of UTC)
+          example: -14400
+        dst_active:
+          type: boolean
+          description: Whether daylight saving time was active
+          example: true
+        confidence:
+          type: string
+          enum: [high, medium, low, unknown]
+          description: Confidence level in the resolution
+          example: "high"
+        reason:
+          type: string
+          description: Human-readable explanation of resolution method
+          example: "TZDB historical rules for America/New_York"
+        notes:
+          type: array
+          items:
+            type: string
+          description: Additional notes about the resolution
+          example: ["Applied US pre-1967 patch", "DST rules from Standard Time Act"]
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Warnings about potential issues
+          example: ["User-provided offset conflicts with historical data"]
+
+    Provenance:
+      type: object
+      required:
+        - tzdb_version
+        - sources
+        - resolution_mode
+      properties:
+        tzdb_version:
+          type: string
+          description: TZDB version used
+          example: "2024a"
+        sources:
+          type: array
+          items:
+            type: string
+          description: Data sources used
+          example: ["TZDB", "US_pre1967_patches", "coordinate_lookup"]
+        resolution_mode:
+          type: string
+          description: Actual resolution mode used
+          example: "strict_history"
+        patches_applied:
+          type: array
+          items:
+            type: string
+          description: List of patches applied
+          example: ["us_pre1967_kentucky_est"]
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details

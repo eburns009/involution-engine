@@ -1,0 +1,25 @@
+{
+  "batch_summary": {
+    "total_charts": 5,
+    "total_systems": 10,
+    "batch_duration_ms": 602.1792888641357,
+    "charts_per_second": 8.303174972077302
+  },
+  "duration_stats": {
+    "mean_ms": 11.870861053466797,
+    "median_ms": 11.698246002197266,
+    "p95_ms": 13.336658477783203,
+    "min_ms": 10.309934616088867,
+    "max_ms": 13.336658477783203
+  },
+  "payload_stats": {
+    "mean_bytes": 305.7,
+    "median_bytes": 306.0,
+    "total_bytes": 3057
+  },
+  "response_stats": {
+    "mean_bytes": 1271.9,
+    "median_bytes": 1243.5,
+    "total_bytes": 12719
+  }
+}

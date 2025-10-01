@@ -1,0 +1,124 @@
+# Involution Engine - Development Docker Compose
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Main calculation engine
+  engine:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+      target: development
+    container_name: involution-engine-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+      - DEBUG=1
+      - DISABLE_RATE_LIMIT=1
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000
+      - LOG_LEVEL=DEBUG
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./engine:/app
+      - kernel_cache:/app/kernels
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Time resolver service
+  time-resolver:
+    build:
+      context: ./time_resolver
+      dockerfile: Dockerfile
+    container_name: involution-time-resolver-dev
+    ports:
+      - "5000:5000"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=DEBUG
+      - REDIS_URL=redis://redis:6379/1
+    volumes:
+      - ./time_resolver:/app
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: involution-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nominatim geocoding service (optional)
+  nominatim:
+    image: mediagis/nominatim:4.2
+    container_name: involution-nominatim-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - PBF_URL=https://download.geofabrik.de/europe/monaco-latest.osm.pbf
+      - REPLICATION_URL=https://download.geofabrik.de/europe/monaco-updates/
+      - IMPORT_WIKIPEDIA=false
+      - IMPORT_US_POSTCODES=false
+      - IMPORT_GB_POSTCODES=false
+      - THREADS=2
+    volumes:
+      - nominatim_data:/var/lib/postgresql/14/main
+    restart: unless-stopped
+    profiles:
+      - geocoding
+
+  # Development database (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: involution-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=involution_dev
+      - POSTGRES_USER=involution_user
+      - POSTGRES_PASSWORD=dev_password_change_in_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    profiles:
+      - database
+
+volumes:
+  kernel_cache:
+    driver: local
+  redis_data:
+    driver: local
+  nominatim_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: involution-dev
+    driver: bridge

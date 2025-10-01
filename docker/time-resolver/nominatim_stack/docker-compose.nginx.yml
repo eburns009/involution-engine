@@ -1,0 +1,53 @@
+# NGINX Caching Reverse Proxy for Nominatim
+# Production-ready caching layer for improved performance
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nominatim-nginx
+    restart: always
+    ports:
+      - "8090:80"  # NGINX caching proxy on port 8090
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_cache:/var/cache/nginx/nominatim
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - nominatim
+    networks:
+      - nominatim-network
+    environment:
+      - NGINX_WORKER_PROCESSES=auto
+      - NGINX_WORKER_CONNECTIONS=1024
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/status.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    labels:
+      - "nominatim.service=nginx-cache"
+      - "nominatim.description=NGINX caching reverse proxy"
+
+volumes:
+  nginx_cache:
+    driver: local
+    labels:
+      - "nominatim.volume=nginx-cache"
+      - "nominatim.description=NGINX cache storage"
+
+  nginx_logs:
+    driver: local
+    labels:
+      - "nominatim.volume=nginx-logs"
+      - "nominatim.description=NGINX access and error logs"
+
+networks:
+  nominatim-network:
+    external: true

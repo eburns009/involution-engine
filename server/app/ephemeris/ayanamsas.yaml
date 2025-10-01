@@ -1,0 +1,83 @@
+# Ayanāṃśa Registry
+#
+# Defines all supported ayanāṃśa systems for sidereal zodiac calculations.
+# Each system specifies either a formula or a fixed offset value.
+
+---
+
+lahiri:
+  name: "Lahiri (Chitrapaksha)"
+  description: "Official ayanāṃśa of the Indian government"
+  type: "formula"
+  formula: "lahiri"
+  reference: "IAU 1980, Indian Astronomical Ephemeris"
+  reference_value:
+    date: "2000-01-01"
+    offset_degrees: 23.85
+  validation_status: "verified"
+  tolerance_arcminutes: 0.1
+
+fagan_bradley:
+  name: "Fagan-Bradley (Dynamic)"
+  description: "Time-dependent calculation"
+  type: "formula"
+  formula: "fagan_bradley_dynamic"
+  reference: "Cyril Fagan & R.C. Firebrace"
+  reference_value:
+    date: "1950-01-01"
+    offset_degrees: 24.02
+  validation_status: "verified"
+  tolerance_arcminutes: 0.1
+
+fagan_bradley_fixed:
+  name: "Fagan-Bradley (Fixed at 1950)"
+  description: "Fixed 24.22° offset at January 1, 1950"
+  type: "fixed"
+  offset_degrees: 24.22
+  reference_epoch: "1950-01-01T00:00:00Z"
+  validation_status: "exact"
+  tolerance_arcminutes: 0.0
+
+krishnamurti:
+  name: "Krishnamurti (KP System)"
+  description: "Krishnamurti Paddhati ayanāṃśa"
+  type: "formula"
+  formula: "krishnamurti"
+  reference: "K.S. Krishnamurti"
+  reference_value:
+    date: "2000-01-01"
+    offset_degrees: 23.76
+  validation_status: "reference_checked"
+  tolerance_arcminutes: 0.5
+
+raman:
+  name: "B.V. Raman"
+  description: "Classical Indian tradition"
+  type: "formula"
+  formula: "raman"
+  reference: "Dr. B.V. Raman"
+  reference_value:
+    date: "2000-01-01"
+    offset_degrees: 22.37
+  validation_status: "reference_checked"
+  tolerance_arcminutes: 0.5
+
+yukteshwar:
+  name: "Yukteshwar"
+  description: "Yogic astronomy tradition"
+  type: "formula"
+  formula: "yukteshwar"
+  reference: "Sri Yukteshwar Giri"
+  reference_value:
+    date: "2000-01-01"
+    offset_degrees: 21.18
+  validation_status: "reference_checked"
+  tolerance_arcminutes: 0.5
+
+_metadata:
+  version: "1.1.0"
+  last_updated: "2025-10-01"
+  sources:
+    - "Swiss Ephemeris Documentation"
+    - "IERS Conventions 2010"
+    - "Lahiri Ayanamsha in Indian Astronomy"

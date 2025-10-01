@@ -1,0 +1,618 @@
+{
+  "study_info": {
+    "timestamp": "2025-09-27T02:01:37.086811",
+    "spice_url": "http://localhost:8000",
+    "total_charts": 9
+  },
+  "results": [
+    {
+      "chart": {
+        "chart_id": 1,
+        "date": "1953-01-15",
+        "time": "12:00:00",
+        "location": "London, England",
+        "latitude": 51.5,
+        "longitude": -0.116667,
+        "era": "1950s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 295.058545,
+          "longitude_dms": "295\u00b003'30.76\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 293.674803,
+          "longitude_dms": "293\u00b040'29.29\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 283.536633,
+          "longitude_dms": "283\u00b032'11.88\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 341.240154,
+          "longitude_dms": "341\u00b014'24.55\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 342.008692,
+          "longitude_dms": "342\u00b000'31.29\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 41.15126,
+          "longitude_dms": "41\u00b009'04.54\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 206.920883,
+          "longitude_dms": "206\u00b055'15.18\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "sidereal_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 270.973879,
+          "longitude_dms": "270\u00b058'25.96\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 269.590137,
+          "longitude_dms": "269\u00b035'24.49\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 259.451967,
+          "longitude_dms": "259\u00b027'07.08\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 317.155488,
+          "longitude_dms": "317\u00b009'19.76\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 317.924026,
+          "longitude_dms": "317\u00b055'26.49\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 17.066594,
+          "longitude_dms": "17\u00b003'59.74\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 182.836217,
+          "longitude_dms": "182\u00b050'10.38\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "ayanamsa_value": 24.084666,
+      "calculation_time": 0.027814865112304688,
+      "errors": []
+    },
+    {
+      "chart": {
+        "chart_id": 2,
+        "date": "1958-07-23",
+        "time": "06:30:00",
+        "location": "New York, USA",
+        "latitude": 40.716667,
+        "longitude": -74.0,
+        "era": "1950s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 119.905535,
+          "longitude_dms": "119\u00b054'19.93\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 205.222312,
+          "longitude_dms": "205\u00b013'20.32\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 146.705729,
+          "longitude_dms": "146\u00b042'20.62\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 91.25043,
+          "longitude_dms": "91\u00b015'01.55\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 31.244941,
+          "longitude_dms": "31\u00b014'41.79\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 203.434789,
+          "longitude_dms": "203\u00b026'05.24\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 259.875528,
+          "longitude_dms": "259\u00b052'31.90\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "sidereal_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 95.743863,
+          "longitude_dms": "95\u00b044'37.91\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 181.06064,
+          "longitude_dms": "181\u00b003'38.30\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 122.544057,
+          "longitude_dms": "122\u00b032'38.61\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 67.088758,
+          "longitude_dms": "67\u00b005'19.53\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 7.083269,
+          "longitude_dms": "07\u00b004'59.77\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 179.273116,
+          "longitude_dms": "179\u00b016'23.22\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 235.713856,
+          "longitude_dms": "235\u00b042'49.88\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "ayanamsa_value": 24.161672,
+      "calculation_time": 0.02380514144897461,
+      "errors": []
+    },
+    {
+      "chart": {
+        "chart_id": 3,
+        "date": "1951-11-08",
+        "time": "21:15:00",
+        "location": "Tokyo, Japan",
+        "latitude": 35.683333,
+        "longitude": 139.7,
+        "era": "1950s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 225.662142,
+          "longitude_dms": "225\u00b039'43.71\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 348.070873,
+          "longitude_dms": "348\u00b004'15.14\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 241.001072,
+          "longitude_dms": "241\u00b000'03.86\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 179.131967,
+          "longitude_dms": "179\u00b007'55.08\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 171.049962,
+          "longitude_dms": "171\u00b002'59.86\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 5.019433,
+          "longitude_dms": "05\u00b001'09.96\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 190.268733,
+          "longitude_dms": "190\u00b016'07.44\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "sidereal_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 201.594049,
+          "longitude_dms": "201\u00b035'38.58\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 324.00278,
+          "longitude_dms": "324\u00b000'10.01\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 216.932979,
+          "longitude_dms": "216\u00b055'58.72\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 155.063874,
+          "longitude_dms": "155\u00b003'49.95\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 146.981869,
+          "longitude_dms": "146\u00b058'54.73\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 340.95134,
+          "longitude_dms": "340\u00b057'04.82\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 166.20064,
+          "longitude_dms": "166\u00b012'02.30\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "ayanamsa_value": 24.068093,
+      "calculation_time": 0.038494110107421875,
+      "errors": []
+    },
+    {
+      "chart": {
+        "chart_id": 4,
+        "date": "1982-03-12",
+        "time": "15:45:00",
+        "location": "Sydney, Australia",
+        "latitude": -33.866667,
+        "longitude": 151.2,
+        "era": "1980s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 351.743922,
+          "longitude_dms": "351\u00b044'38.12\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 205.460025,
+          "longitude_dms": "205\u00b027'36.09\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 328.347733,
+          "longitude_dms": "328\u00b020'51.84\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 307.18191,
+          "longitude_dms": "307\u00b010'54.88\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 196.675183,
+          "longitude_dms": "196\u00b040'30.66\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 219.913693,
+          "longitude_dms": "219\u00b054'49.29\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 200.900332,
+          "longitude_dms": "200\u00b054'01.20\"",
+          "zodiac_system": "tropical",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "sidereal_positions": [
+        {
+          "planet": "Sun",
+          "longitude_deg": 327.252276,
+          "longitude_dms": "327\u00b015'08.19\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Moon",
+          "longitude_deg": 180.968379,
+          "longitude_dms": "180\u00b058'06.16\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mercury",
+          "longitude_deg": 303.856087,
+          "longitude_dms": "303\u00b051'21.91\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Venus",
+          "longitude_deg": 282.690264,
+          "longitude_dms": "282\u00b041'24.95\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Mars",
+          "longitude_deg": 172.183537,
+          "longitude_dms": "172\u00b011'00.73\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Jupiter",
+          "longitude_deg": 195.422047,
+          "longitude_dms": "195\u00b025'19.37\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        },
+        {
+          "planet": "Saturn",
+          "longitude_deg": 176.408686,
+          "longitude_dms": "176\u00b024'31.27\"",
+          "zodiac_system": "sidereal",
+          "ephemeris": "spice_de440"
+        }
+      ],
+      "ayanamsa_value": 24.491646,
+      "calculation_time": 0.029066085815429688,
+      "errors": []
+    },
+    {
+      "chart": {
+        "chart_id": 5,
+        "date": "1987-09-04",
+        "time": "11:20:00",
+        "location": "Cairo, Egypt",
+        "latitude": 30.05,
+        "longitude": 31.25,
+        "era": "1980s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [],
+      "sidereal_positions": [],
+      "ayanamsa_value": 0.0,
+      "calculation_time": 0.0068280696868896484,
+      "errors": [
+        "Tropical calculation failed: 429",
+        "Sidereal calculation failed: 429"
+      ]
+    },
+    {
+      "chart": {
+        "chart_id": 6,
+        "date": "1985-12-21",
+        "time": "07:00:00",
+        "location": "Mexico City, Mexico",
+        "latitude": 19.433333,
+        "longitude": -99.133333,
+        "era": "1980s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [],
+      "sidereal_positions": [],
+      "ayanamsa_value": 0.0,
+      "calculation_time": 0.00563502311706543,
+      "errors": [
+        "Tropical calculation failed: 429",
+        "Sidereal calculation failed: 429"
+      ]
+    },
+    {
+      "chart": {
+        "chart_id": 7,
+        "date": "2003-05-18",
+        "time": "14:30:00",
+        "location": "Mumbai, India",
+        "latitude": 19.066667,
+        "longitude": 72.883333,
+        "era": "2000s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [],
+      "sidereal_positions": [],
+      "ayanamsa_value": 0.0,
+      "calculation_time": 0.0058689117431640625,
+      "errors": [
+        "Tropical calculation failed: 429",
+        "Sidereal calculation failed: 429"
+      ]
+    },
+    {
+      "chart": {
+        "chart_id": 8,
+        "date": "2007-08-11",
+        "time": "22:45:00",
+        "location": "S\u00e3o Paulo, Brazil",
+        "latitude": -23.55,
+        "longitude": -46.633333,
+        "era": "2000s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [],
+      "sidereal_positions": [],
+      "ayanamsa_value": 0.0,
+      "calculation_time": 0.006342172622680664,
+      "errors": [
+        "Tropical calculation failed: 429",
+        "Sidereal calculation failed: 429"
+      ]
+    },
+    {
+      "chart": {
+        "chart_id": 9,
+        "date": "2004-02-29",
+        "time": "04:15:00",
+        "location": "Berlin, Germany",
+        "latitude": 52.516667,
+        "longitude": 13.4,
+        "era": "2000s",
+        "timezone_offset": 0.0,
+        "is_lmt": false
+      },
+      "tropical_positions": [],
+      "sidereal_positions": [],
+      "ayanamsa_value": 0.0,
+      "calculation_time": 0.005415916442871094,
+      "errors": [
+        "Tropical calculation failed: 429",
+        "Sidereal calculation failed: 429"
+      ]
+    }
+  ],
+  "analysis": {
+    "total_charts": 9,
+    "successful_charts": 4,
+    "failed_charts": 5,
+    "average_calculation_time": 0.016585588455200195,
+    "ayanamsa_range": {
+      "min": 24.068093,
+      "max": 24.491646,
+      "mean": 24.20151925
+    },
+    "tropical_sidereal_differences": {},
+    "era_analysis": {
+      "1950s": {
+        "total": 3,
+        "successful": 3,
+        "success_rate": 1.0,
+        "avg_ayanamsa": 24.104810333333333
+      },
+      "1980s": {
+        "total": 3,
+        "successful": 1,
+        "success_rate": 0.3333333333333333,
+        "avg_ayanamsa": 24.491646
+      },
+      "2000s": {
+        "total": 3,
+        "successful": 0,
+        "success_rate": 0.0,
+        "avg_ayanamsa": 0
+      }
+    }
+  }
+}

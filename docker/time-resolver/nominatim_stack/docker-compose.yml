@@ -1,0 +1,68 @@
+services:
+  nominatim:
+    image: mediagis/nominatim:4.4
+    container_name: nominatim
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Import on first start. You can change the PBF path in .env or place your file at ./data/data.osm.pbf
+      PBF_PATH: "${NOMINATIM_PBF_PATH:-/nominatim/data/data.osm.pbf}"
+      # Number of threads for import & queries
+      THREADS: "${THREADS:-4}"
+      # Enable replication (diff updates)
+      REPLICATION_URL: "${REPLICATION_URL:-https://download.geofabrik.de/north-america/us-updates}"
+      NOMINATIM_EXTRA_PARAMS: "${NOMINATIM_EXTRA_PARAMS:-}"
+    volumes:
+      - ./data:/nominatim/data:rw
+      - ./pgdata:/var/lib/postgresql/14/main:rw
+      - ./scripts:/scripts:ro
+      - ./cron.d:/etc/cron.d:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/status.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    networks:
+      - nominatim-network
+
+  updater:
+    image: mediagis/nominatim:4.4
+    container_name: nominatim-updater
+    depends_on:
+      - nominatim
+    restart: unless-stopped
+    environment:
+      THREADS: "${THREADS:-2}"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/14/main:rw
+      - ./cron.d:/etc/cron.d:ro
+      - ./scripts:/scripts:ro
+    command: ["/bin/sh", "-lc", "crond -f -l 8"]
+    networks:
+      - nominatim-network
+
+  geocoding-gateway:
+    build: ./gateway
+    container_name: geocoding-gateway
+    depends_on:
+      - nominatim
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - NOMINATIM_BASE_URL=http://nominatim:8080
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+    networks:
+      - nominatim-network
+
+networks:
+  nominatim-network:
+    driver: bridge
+    labels:
+      - "nominatim.network=main"
+      - "nominatim.description=Main network for Nominatim services"
