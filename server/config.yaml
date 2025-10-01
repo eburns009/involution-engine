@@ -1,0 +1,29 @@
+api:
+  cors_origins: ["http://localhost:3000"]
+  rate_limit: "200/minute"
+  workers: 4
+
+kernels:
+  bundle: "de440-1900"
+  path: "/opt/kernels"
+  checksums_file: "/opt/kernels/checksums.json"
+
+cache:
+  inproc_lru_enabled: true
+  inproc_lru_size: 4096
+  inproc_ttl_seconds: 3600
+
+geocoding:
+  base_url: "http://nominatim-nginx"
+  timeout_ms: 2000
+
+time:
+  base_url: "http://localhost:9000"
+  tzdb_version: "2025.1"
+  parity_profile_default: "strict_history"
+
+ephemeris:
+  policy: "auto"
+  de440_start: "1550-01-01T00:00:00Z"
+  de440_end: "2650-01-01T00:00:00Z"
+  default: "de441"

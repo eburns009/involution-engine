@@ -1,0 +1,88 @@
+{
+  "description": "Example sidereal planetary positions request using Fagan-Bradley ayanāṃśa",
+  "request": {
+    "method": "POST",
+    "url": "/v1/positions",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "when": {
+        "utc": "1962-07-03T04:33:00Z"
+      },
+      "system": "sidereal",
+      "ayanamsha": {
+        "id": "FAGAN_BRADLEY_DYNAMIC"
+      },
+      "bodies": [
+        "Sun",
+        "Moon",
+        "Mercury",
+        "Venus",
+        "Mars",
+        "Jupiter",
+        "Saturn"
+      ]
+    }
+  },
+  "expected_response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "ETag": "\"sidereal789xyz123\"",
+      "Cache-Control": "public, max-age=3600"
+    },
+    "body": {
+      "utc": "1962-07-03T04:33:00Z",
+      "provenance": {
+        "tzdb_version": "2025.1",
+        "patch_version": "patches-e868200c",
+        "ayanamsha": {
+          "id": "FAGAN_BRADLEY_DYNAMIC",
+          "value_deg": 24.216667
+        },
+        "kernels_bundle": "involution-v1.0",
+        "reference_frame": "ecliptic_of_date",
+        "epoch": "of_date",
+        "ephemeris": "DE440"
+      },
+      "bodies": [
+        {
+          "name": "Sun",
+          "lon_deg": 76.522222
+        },
+        {
+          "name": "Moon",
+          "lon_deg": 302.236111
+        },
+        {
+          "name": "Mercury",
+          "lon_deg": 54.017900
+        },
+        {
+          "name": "Venus",
+          "lon_deg": 123.674567
+        },
+        {
+          "name": "Mars",
+          "lon_deg": 359.351223
+        },
+        {
+          "name": "Jupiter",
+          "lon_deg": 40.906789
+        },
+        {
+          "name": "Saturn",
+          "lon_deg": 281.462234
+        }
+      ]
+    }
+  },
+  "notes": [
+    "This example demonstrates sidereal zodiac calculation using Fagan-Bradley ayanāṃśa",
+    "The ayanāṃśa value (24.216667°) is subtracted from tropical positions",
+    "Sidereal positions are typically ~24° less than tropical for this era",
+    "UTC time is used directly (no timezone conversion needed)",
+    "The ayanāṃśa value is included in provenance for transparency"
+  ]
+}
