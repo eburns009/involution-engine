@@ -28,6 +28,13 @@ RUN pip install --no-cache-dir \
 # Update config for this bundle
 RUN sed -i 's/bundle: "de440-1900"/bundle: "de440-full"/' /app/config.yaml
 
+# Create non-root user
+RUN groupadd -r involution && useradd -r -g involution involution \
+    && chown -R involution:involution /app /opt/kernels
+
+# Switch to non-root user
+USER involution
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/healthz', timeout=5)"

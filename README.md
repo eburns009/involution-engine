@@ -12,9 +12,9 @@ Research-grade, self-contained astrological calculation engine with topocentric 
 ┌─────────────────────────────────────────────────────────────┐
 │                    Involution Engine                         │
 ├─────────────────────────────────────────────────────────────┤
-│  /engine          │ Core calculation services (SPICE+FastAPI)│
+│  /server          │ Core calculation services (SPICE+FastAPI)│
 │  /time_resolver   │ Timezone + parity logic                  │
-│  /geocode_proxy   │ Nominatim/nginx proxy (planned)          │
+│  /geocode_proxy   │ Nominatim/nginx proxy                    │
 │  /batch_positions │ Testing harness + validation scripts     │
 │  /examples        │ Reference charts + accuracy test packs   │
 │  /tests           │ Unit tests + golden case validation      │
@@ -22,9 +22,13 @@ Research-grade, self-contained astrological calculation engine with topocentric 
 ```
 
 **Data Flow:**
-Client → Engine (FastAPI) → SPICE Toolkit → Time Resolver → Validated Positions
+Client → Server (FastAPI) → SPICE Toolkit → Time Resolver → Validated Positions
 
-## Quickstart
+## Quick Start
+
+### Prerequisites
+- Python 3.11+
+- Docker (optional, for containerized deployment)
 
 ### Docker Compose (Recommended)
 
@@ -33,30 +37,30 @@ docker compose up -d
 ```
 
 Services will be available at:
-- Engine: `http://localhost:8000`
+- Server: `http://localhost:8000`
 - Time Resolver: `http://localhost:5000`
-- Health checks: `/health` on each service
+- Health checks: `/healthz` on each service
 
 ### Local Development
 
 ```bash
 # 1. Install Python dependencies
-pip install -r engine/requirements.txt
+pip install -r server/requirements.txt
 
-# 2. Download SPICE kernels
-./engine/download_kernels.sh
+# 2. Download SPICE kernels (DE440/DE441)
+cd server && bash scripts/download_kernels.sh
 
-# 3. Start the engine
-cd engine && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 3. Start the server
+cd server && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# 4. Test the engine
-curl -s http://localhost:8000/health
+# 4. Test the server
+curl -s http://localhost:8000/healthz
 ```
 
 ## Example Chart Query (Fort Knox Test)
 
 ```bash
-curl -s -X POST http://localhost:8000/calculate \
+curl -s -X POST http://localhost:8000/v1/positions \
   -H 'content-type: application/json' \
   -d '{
     "birth_time": "1962-07-03T04:33:00Z",
@@ -64,7 +68,8 @@ curl -s -X POST http://localhost:8000/calculate \
     "longitude": -85.949127,
     "elevation": 0.0,
     "zodiac": "tropical",
-    "ayanamsa": "lahiri"
+    "ayanamsa": "lahiri",
+    "parity_profile": "strict_history"
   }' | jq .
 ```
 
@@ -112,12 +117,12 @@ See [docs/accuracy.md](docs/accuracy.md) for validation methodology.
 pytest tests/
 
 # Code quality checks
-ruff check engine/
-mypy engine/
-bandit -r engine/
+ruff check server/
+mypy server/
+bandit -r server/
 
 # Performance benchmarks
-python tests/batch/accuracy_compare.py
+python examples/five_random/run_accuracy_test.py
 ```
 
 ## Documentation

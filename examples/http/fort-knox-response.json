@@ -1,0 +1,125 @@
+{
+  "positions": [
+    {
+      "body": "Sun",
+      "longitude": 100.89,
+      "latitude": 0.0,
+      "distance": 1.016,
+      "speed": 0.955,
+      "zodiac_sign": "Cancer",
+      "zodiac_position": "10°53'24\""
+    },
+    {
+      "body": "Moon",
+      "longitude": 13.45,
+      "latitude": 5.12,
+      "distance": 0.0026,
+      "speed": 13.2,
+      "zodiac_sign": "Aries",
+      "zodiac_position": "13°27'00\""
+    },
+    {
+      "body": "Mercury",
+      "longitude": 88.23,
+      "latitude": -1.34,
+      "distance": 1.125,
+      "speed": 1.23,
+      "zodiac_sign": "Gemini",
+      "zodiac_position": "28°13'48\""
+    },
+    {
+      "body": "Venus",
+      "longitude": 72.56,
+      "latitude": 3.42,
+      "distance": 1.689,
+      "speed": 1.15,
+      "zodiac_sign": "Gemini",
+      "zodiac_position": "12°33'36\""
+    },
+    {
+      "body": "Mars",
+      "longitude": 14.78,
+      "latitude": -0.89,
+      "distance": 2.345,
+      "speed": 0.67,
+      "zodiac_sign": "Aries",
+      "zodiac_position": "14°46'48\""
+    },
+    {
+      "body": "Jupiter",
+      "longitude": 67.89,
+      "latitude": -0.12,
+      "distance": 5.234,
+      "speed": 0.12,
+      "zodiac_sign": "Gemini",
+      "zodiac_position": "7°53'24\""
+    },
+    {
+      "body": "Saturn",
+      "longitude": 285.34,
+      "latitude": 2.45,
+      "distance": 9.876,
+      "speed": 0.09,
+      "zodiac_sign": "Capricorn",
+      "zodiac_position": "15°20'24\""
+    },
+    {
+      "body": "Uranus",
+      "longitude": 146.78,
+      "latitude": -0.67,
+      "distance": 19.234,
+      "speed": 0.04,
+      "zodiac_sign": "Leo",
+      "zodiac_position": "26°46'48\""
+    },
+    {
+      "body": "Neptune",
+      "longitude": 218.45,
+      "latitude": 1.23,
+      "distance": 29.567,
+      "speed": 0.02,
+      "zodiac_sign": "Scorpio",
+      "zodiac_position": "8°27'00\""
+    },
+    {
+      "body": "Pluto",
+      "longitude": 159.67,
+      "latitude": 17.12,
+      "distance": 31.234,
+      "speed": 0.01,
+      "zodiac_sign": "Virgo",
+      "zodiac_position": "9°40'12\""
+    }
+  ],
+  "houses": {
+    "system": "placidus",
+    "cusps": [
+      0.0,
+      30.5,
+      61.2,
+      92.1,
+      123.4,
+      154.8,
+      180.0,
+      210.5,
+      241.2,
+      272.1,
+      303.4,
+      334.8
+    ],
+    "ascendant": 0.0,
+    "midheaven": 272.1
+  },
+  "metadata": {
+    "timestamp": "1962-07-03T04:33:00Z",
+    "location": {
+      "latitude": 37.840347,
+      "longitude": -85.949127,
+      "elevation": 0.0
+    },
+    "zodiac": "tropical",
+    "ayanamsa": "lahiri",
+    "ephemeris": "de440",
+    "calculation_time_ms": 23.4
+  }
+}
