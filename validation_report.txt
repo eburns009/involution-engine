@@ -1,0 +1,34 @@
+=== FORT KNOX CANONICAL TEST VALIDATION ===
+Birth: 1962-07-02 23:33 (Fort Knox, KY, USA)
+Coords: 37.840347° N, 85.949127° W
+
+A) TIME RESOLUTION:
+   UTC = 1962-07-03T04:33:00Z ✓
+   dst_active = false ✓
+   zone_id = America/New_York ✓
+
+B) TROPICAL POSITIONS @ 04:33Z:
+   Sun: 100.779° ≈ 10°46'45" Cancer ✓ (expected ~10°46' Cancer)
+
+C) SIDEREAL (FAGAN-BRADLEY) @ 04:33Z:
+   Ayanamsa: 24.216745° ≈ 24°13'00" ✓ (expected 24°13'00")
+   Sun: 76.562° ≈ 16°33'44" Gemini ✓ (expected ~16°33' Gemini)
+
+D) CONSISTENCY CHECKS:
+   Tropical - Sidereal = 24.216745° = Ayanamsa ✓
+
+E) TOLERANCE ANALYSIS:
+   All key positions within expected ranges ✓
+   Ayanamsa accurate to ~0.001° ✓
+   Time resolution historically correct ✓
+
+F) DETAILED POSITIONS:
+   BODY        | TROPICAL     | SIDEREAL FB  | DIFFERENCE
+   ------------|--------------|--------------|------------
+   Sun        | 100.779070° |  76.562325° |  24.216745°
+   Moon       | 114.785034° |  90.568289° |  24.216745°
+   Mercury    |  79.244221° |  55.027476° |  24.216745°
+   Venus      | 138.730269° | 114.513524° |  24.216745°
+   Mars       |  55.766729° |  31.549984° |  24.216745°
+   Jupiter    | 342.692677° | 318.475932° |  24.216745°
+   Saturn     | 310.051479° | 285.834734° |  24.216745°

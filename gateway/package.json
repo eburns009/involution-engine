@@ -1,0 +1,17 @@
+{
+  "name": "involution-gateway",
+  "version": "1.0.0",
+  "description": "Smart routing gateway for dual ephemeris SPICE services",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["astrology", "ephemeris", "spice", "gateway"],
+  "author": "Involution Engine",
+  "license": "MIT"
+}

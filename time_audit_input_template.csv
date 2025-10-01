@@ -1,0 +1,16 @@
+test_name,local_datetime,latitude,longitude,parity_profile,user_provided_zone,user_provided_offset,expected_utc,expected_zone_id,expected_offset_seconds,expected_dst_active,notes
+Edward Burns as_entered,1962-07-02T23:33:00,37.840347,-85.949127,as_entered,EDT,,1962-07-03T03:33:00+00:00,America/New_York,-14400,true,User provided EDT should contradict historical EST
+Edward Burns strict_history,1962-07-02T23:33:00,37.840347,-85.949127,strict_history,,,1962-07-03T04:33:00+00:00,America/New_York,-18000,false,Should apply Fort Knox EST patch
+Edward Burns astro_com,1962-07-02T23:33:00,37.840347,-85.949127,astro_com,,,1962-07-03T03:33:00+00:00,America/New_York,-14400,true,Should ignore patches and use standard TZDB
+Louisville 1950 strict_history,1950-06-15T12:00:00,38.25,-85.75,strict_history,,,1950-06-15T18:00:00+00:00,America/Chicago,-21600,true,Louisville Central Time patch
+Michigan UP 1965 strict_history,1965-08-20T15:30:00,46.5,-87.5,strict_history,,,1965-08-20T21:30:00+00:00,America/Chicago,-21600,true,Upper Peninsula Central Time patch
+Arizona 1955 strict_history,1955-07-15T14:00:00,33.5,-112.0,strict_history,,,1955-07-15T21:00:00+00:00,America/Phoenix,-25200,true,Arizona pre-1968 DST patch
+Hawaii territorial 1940 strict_history,1940-12-01T08:00:00,21.3,-157.8,strict_history,,,1940-12-01T18:00:00+00:00,Pacific/Honolulu,-36000,false,Hawaii territorial HST patch
+Modern NYC 2023 strict_history,2023-07-15T15:30:00,40.7128,-74.0060,strict_history,,,2023-07-15T19:30:00+00:00,America/New_York,-14400,true,Modern era should use standard TZDB
+Modern LA 2023 strict_history,2023-01-15T10:00:00,34.0522,-118.2437,strict_history,,,2023-01-15T18:00:00+00:00,America/Los_Angeles,-28800,false,Standard PST in winter
+User override EST,2023-07-15T15:30:00,40.7128,-74.0060,as_entered,EST,,2023-07-15T20:30:00+00:00,EST,-18000,false,User forces EST in summer (should warn)
+NYC War Time 1943,1943-07-15T14:00:00,40.7128,-74.0060,strict_history,,,1943-07-15T18:00:00+00:00,America/New_York,-14400,false,NYC War Time (EWT) during WWII
+Dublin BST 1940,1940-08-15T12:00:00,53.3498,-6.2603,strict_history,,,1940-08-15T11:00:00+00:00,Europe/Dublin,3600,false,Dublin Summer Time during WWII
+Newfoundland NST 1940,1940-06-15T15:00:00,47.5615,-52.7126,strict_history,,,1940-06-15T18:30:00+00:00,America/St_Johns,-12600,false,Newfoundland Standard Time UTC-3:30
+NYC War Time as_entered,1943-07-15T14:00:00,40.7128,-74.0060,as_entered,EST,,1943-07-15T19:00:00+00:00,EST,-18000,false,User claims EST during War Time period
+Dublin modern vs historical,1940-08-15T12:00:00,53.3498,-6.2603,astro_com,,,1940-08-15T11:00:00+00:00,Europe/Dublin,3600,true,Astro.com mode uses TZDB rules instead of patches

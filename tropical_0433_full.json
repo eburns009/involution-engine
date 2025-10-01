@@ -1,0 +1,53 @@
+{
+  "data": {
+    "Sun": {
+      "longitude": 100.77907,
+      "latitude": -0.002089,
+      "distance": 1.01675975
+    },
+    "Moon": {
+      "longitude": 114.785034,
+      "latitude": -2.068475,
+      "distance": 0.00263131
+    },
+    "Mercury": {
+      "longitude": 79.244221,
+      "latitude": -2.874559,
+      "distance": 0.87416872
+    },
+    "Venus": {
+      "longitude": 138.730269,
+      "latitude": 1.776323,
+      "distance": 1.16036423
+    },
+    "Mars": {
+      "longitude": 55.766729,
+      "latitude": -0.547157,
+      "distance": 1.94902196
+    },
+    "Jupiter": {
+      "longitude": 342.692677,
+      "latitude": -1.163775,
+      "distance": 4.4481456
+    },
+    "Saturn": {
+      "longitude": 310.051479,
+      "latitude": -0.654655,
+      "distance": 9.06300694
+    }
+  },
+  "meta": {
+    "service_version": "2.0.0",
+    "spice_version": "CSPICE_N0067",
+    "kernel_set_tag": "2024-Q3",
+    "ecliptic_frame": "ECLIPDATE",
+    "zodiac": "tropical",
+    "ayanamsa_deg": null,
+    "observer_frame_used": "IAU_EARTH",
+    "request_id": "0f69fce9-033a-446a-8ba3-a32db8654ab1",
+    "timestamp": 1758980560.5371518,
+    "parity_profile": "strict_history",
+    "time_resolution": null,
+    "chart_warnings": []
+  }
+}

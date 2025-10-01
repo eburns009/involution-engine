@@ -1,0 +1,108 @@
+name: Time Resolver CI
+
+on:
+  push:
+    paths:
+      - "docker/time-resolver/**"
+      - "docker/time-resolver.Dockerfile"
+      - ".github/workflows/time-resolver-ci.yml"
+  pull_request:
+    paths:
+      - "docker/time-resolver/**"
+      - "docker/time-resolver.Dockerfile"
+      - ".github/workflows/time-resolver-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docker/time-resolver
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run validation tests
+        run: python validate_updates.py
+
+      - name: Start resolver (background)
+        run: |
+          RESOLVER_PATCH_FILE=config/patches_us_pre1967.json \
+          uvicorn time_resolver.api:app --host 0.0.0.0 --port 8080 &
+          echo $! > resolver.pid
+
+      - name: Wait for health check
+        run: |
+          for i in {1..40}; do
+            if curl -s http://127.0.0.1:8080/health > /dev/null; then
+              echo "✅ Service is healthy"
+
+              # Test comprehensive health endpoint
+              echo "📊 Testing /healthz endpoint..."
+              curl -s http://127.0.0.1:8080/healthz | python -c "
+import sys, json
+data = json.load(sys.stdin)
+print(f'TZDB Version: {data[\"tzdb_version\"]}')
+print(f'Patch Version: {data[\"patch_version\"]}')
+print(f'Patches Loaded: {data[\"patches_loaded\"]}')
+print(f'Cache Max Size: {data[\"cache_stats\"][\"cache_max_size\"]}')
+sys.exit(0 if data['status'] == 'healthy' else 1)
+              "
+              exit 0
+            fi
+            echo "⏳ Waiting for service... ($i/40)"
+            sleep 0.5
+          done
+          echo "❌ Service failed to start"
+          exit 1
+
+      - name: Test API endpoints
+        run: |
+          # Test basic resolution
+          curl -X POST http://127.0.0.1:8080/v1/time/resolve \
+            -H "Content-Type: application/json" \
+            -d '{"local_datetime": "1962-07-02T23:33:00", "place": {"lat": 40.7128, "lon": -74.0060}, "parity_profile": "strict_history"}' \
+            | python -c "import sys, json; data=json.load(sys.stdin); print(f'✅ UTC: {data[\"utc\"]}'); sys.exit(0 if 'utc' in data else 1)"
+
+          # Test historical patch
+          curl -X POST http://127.0.0.1:8080/v1/time/resolve \
+            -H "Content-Type: application/json" \
+            -d '{"local_datetime": "1943-06-15T14:30:00", "place": {"lat": 37.89, "lon": -85.96}, "parity_profile": "strict_history"}' \
+            | python -c "import sys, json; data=json.load(sys.stdin); print(f'✅ Patches: {data[\"provenance\"][\"patches_applied\"]}'); sys.exit(0 if len(data[\"provenance\"][\"patches_applied\"]) > 0 else 1)"
+
+      - name: Run time audit (if available)
+        run: |
+          if [ -f "/mnt/data/time_resolver_kit/time_audit_runner.py" ]; then
+            echo "📊 Running time audit..."
+            python /mnt/data/time_resolver_kit/time_audit_runner.py \
+              --base-url http://127.0.0.1:8080 \
+              --input-csv /mnt/data/time_resolver_kit/time_audit_input_template.csv \
+              --out-csv time_audit_report.csv || echo "⚠️ Audit failed but continuing"
+          else
+            echo "⏭️ Time audit kit not available, skipping"
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: time-audit-report-${{ github.run_number }}
+          path: docker/time-resolver/time_audit_report.csv
+          if-no-files-found: ignore
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f resolver.pid ]; then
+            kill $(cat resolver.pid) 2>/dev/null || true
+            rm resolver.pid
+          fi

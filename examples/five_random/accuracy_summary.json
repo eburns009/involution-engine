@@ -1,0 +1,80 @@
+{
+  "overall": {
+    "total_comparisons": 70,
+    "passed": 70,
+    "failed": 0,
+    "pass_rate_percent": 100.0
+  },
+  "difference_stats": {
+    "mean_arcmin": 0.03469285714302171,
+    "median_arcmin": 0.03234000000020387,
+    "p95_arcmin": 0.05623500000032777,
+    "max_arcmin": 0.08255999999960295,
+    "min_arcmin": 0.022019999998974527
+  },
+  "by_body": {
+    "Jupiter": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.03064200000052808,
+      "median_diff_arcmin": 0.030270000001273445,
+      "max_diff_arcmin": 0.03521999999975378,
+      "min_diff_arcmin": 0.026460000000554373
+    },
+    "Mars": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.039234000000234914,
+      "median_diff_arcmin": 0.034860000000023206,
+      "max_diff_arcmin": 0.056040000000052714,
+      "min_diff_arcmin": 0.02807999999902222
+    },
+    "Mercury": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.033060000000229905,
+      "median_diff_arcmin": 0.03321000000008567,
+      "max_diff_arcmin": 0.04283999999756816,
+      "min_diff_arcmin": 0.02802000000087901
+    },
+    "Moon": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.03768600000000788,
+      "median_diff_arcmin": 0.03254999999967367,
+      "max_diff_arcmin": 0.08255999999960295,
+      "min_diff_arcmin": 0.022019999998974527
+    },
+    "Saturn": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.03983399999993509,
+      "median_diff_arcmin": 0.03380999999947676,
+      "max_diff_arcmin": 0.06761999999980617,
+      "min_diff_arcmin": 0.02748000000011075
+    },
+    "Sun": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.02941800000008321,
+      "median_diff_arcmin": 0.029940000000854283,
+      "max_diff_arcmin": 0.03414000000077522,
+      "min_diff_arcmin": 0.02477999999989322
+    },
+    "Venus": {
+      "count": 10,
+      "passed": 10,
+      "pass_rate_percent": 100.0,
+      "mean_diff_arcmin": 0.0329760000001329,
+      "median_diff_arcmin": 0.030209999999613046,
+      "max_diff_arcmin": 0.056400000000849104,
+      "min_diff_arcmin": 0.027359999999134743
+    }
+  }
+}

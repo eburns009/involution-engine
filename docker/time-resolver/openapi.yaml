@@ -1,0 +1,287 @@
+openapi: 3.0.0
+info:
+  title: Time Resolver API
+  description: |
+    Historical timezone resolution service with IANA tzdb and custom patches.
+
+    Built with:
+    - FastAPI 0.115.0
+    - Pydantic 2.9.2
+    - TZDATA 2025.1
+    - TimezoneFinder 6.5.5
+  version: 1.0.0
+  contact:
+    name: Involution Engine
+    url: https://github.com/involution-engine
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://time-resolver.yourdomain.com
+    description: Production
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Service health and version information
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /resolve:
+    post:
+      summary: Resolve historical timezone
+      description: |
+        Convert local datetime + coordinates to UTC with historical timezone rules.
+        Supports multiple parity profiles for compatibility with different astrological software.
+      operationId: resolveTime
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeResolveRequest'
+            examples:
+              strict_history:
+                summary: Strict history mode
+                value:
+                  local_datetime: "1962-07-02T23:33:00"
+                  latitude: 40.7128
+                  longitude: -74.0060
+                  parity_profile: "strict_history"
+              astro_com:
+                summary: Astro.com compatibility
+                value:
+                  local_datetime: "1943-06-15T14:30:00"
+                  latitude: 37.8917
+                  longitude: -85.9623
+                  parity_profile: "astro_com"
+              as_entered:
+                summary: User override mode
+                value:
+                  local_datetime: "1950-01-15T12:00:00"
+                  latitude: 41.8781
+                  longitude: -87.6298
+                  parity_profile: "as_entered"
+                  user_provided_zone: "CST"
+      responses:
+        '200':
+          description: Time resolution successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeResolveResponse'
+        '422':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /:
+    get:
+      summary: Service information
+      description: Basic service information and available endpoints
+      operationId: serviceInfo
+      responses:
+        '200':
+          description: Service information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  version:
+                    type: string
+                  tzdb_version:
+                    type: string
+                  endpoints:
+                    type: object
+
+components:
+  schemas:
+    ParityProfile:
+      type: string
+      enum:
+        - strict_history
+        - astro_com
+        - clairvision
+        - as_entered
+      description: |
+        Time resolution mode:
+        - strict_history: IANA tzdb + historical patches (recommended)
+        - astro_com: Astrodienst compatibility mode
+        - clairvision: Clairvision compatibility mode
+        - as_entered: Trust user input with warnings
+
+    ConfidenceLevel:
+      type: string
+      enum:
+        - high
+        - medium
+        - low
+        - unknown
+      description: Confidence level in the time resolution
+
+    TimeResolveRequest:
+      type: object
+      required:
+        - local_datetime
+        - latitude
+        - longitude
+      properties:
+        local_datetime:
+          type: string
+          format: date-time
+          description: Local datetime in ISO 8601 format without timezone
+          example: "1962-07-02T23:33:00"
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude in degrees
+          example: 40.7128
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude in degrees
+          example: -74.0060
+        parity_profile:
+          $ref: '#/components/schemas/ParityProfile'
+          default: strict_history
+        user_provided_zone:
+          type: string
+          description: User-provided timezone identifier (for as_entered mode)
+          example: "EST"
+        user_provided_offset:
+          type: integer
+          description: User-provided UTC offset in seconds (for as_entered mode)
+          example: -18000
+
+    TimeProvenance:
+      type: object
+      required:
+        - tzdb_version
+        - sources
+        - resolution_mode
+        - patches_applied
+      properties:
+        tzdb_version:
+          type: string
+          description: IANA timezone database version
+          example: "tzdata-2024.2"
+        sources:
+          type: array
+          items:
+            type: string
+          description: Data sources used for resolution
+          example: ["coordinate_lookup", "IANA_tzdb", "historical_patches"]
+        resolution_mode:
+          type: string
+          description: Parity profile used
+          example: "strict_history"
+        patches_applied:
+          type: array
+          items:
+            type: string
+          description: Historical patches applied
+          example: ["fort_knox_1943"]
+
+    TimeResolveResponse:
+      type: object
+      required:
+        - utc
+        - zone_id
+        - offset_seconds
+        - dst_active
+        - confidence
+        - reason
+        - notes
+        - provenance
+        - warnings
+      properties:
+        utc:
+          type: string
+          format: date-time
+          description: UTC datetime in ISO 8601 format
+          example: "1962-07-03T04:33:00Z"
+        zone_id:
+          type: string
+          description: IANA timezone identifier
+          example: "America/New_York"
+        offset_seconds:
+          type: integer
+          description: UTC offset in seconds
+          example: -18000
+        dst_active:
+          type: boolean
+          description: Whether daylight saving time was active
+          example: false
+        confidence:
+          $ref: '#/components/schemas/ConfidenceLevel'
+        reason:
+          type: string
+          description: Human-readable explanation of resolution method
+          example: "IANA tzdb historical rules for America/New_York"
+        notes:
+          type: array
+          items:
+            type: string
+          description: Additional notes about the resolution
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Warnings about potential issues
+        provenance:
+          $ref: '#/components/schemas/TimeProvenance'
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - tzdb_version
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+        tzdb_version:
+          type: string
+          example: "tzdata-2024.2"
+        timestamp:
+          type: number
+          format: float
+          description: Unix timestamp
+          example: 1703097600.0
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Invalid input: local_datetime must be in ISO 8601 format"

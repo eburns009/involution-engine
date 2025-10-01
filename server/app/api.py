@@ -467,3 +467,139 @@ async def geocode(
             metrics.record_error("INTERNAL.UNEXPECTED")
             logger.error(f"Unexpected error in geocoding endpoint: {e}")
             ErrorHandler.handle_service_error(e, "geocoding")
+
+
+@router.get(
+    "/v1/stars/positions",
+    responses={
+        200: {"description": "Fixed star positions"},
+        404: {"model": ErrorOut, "description": "Feature disabled"},
+        400: {"model": ErrorOut},
+        500: {"model": ErrorOut}
+    }
+)
+async def stars_positions(
+    utc: str = Query(..., description="UTC datetime (ISO format)"),
+    frame: str = Query("ecliptic_of_date", description="Coordinate frame (ecliptic_of_date or equatorial)"),
+    epoch: str = Query("of_date", description="Coordinate epoch (of_date or J2000)"),
+    apply_proper_motion: bool = Query(False, description="Apply proper motion correction"),
+    request: Request = None
+):
+    """
+    Get positions of bright fixed stars.
+
+    This endpoint is feature-flagged and must be enabled in configuration.
+    Returns positions of bright stars from the configured catalog.
+    """
+    from fastapi import HTTPException
+
+    # Check if feature is enabled
+    if not CONFIG.features.fixed_stars.enabled:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "FEATURE.DISABLED",
+                "title": "Fixed stars feature disabled",
+                "detail": "The fixed stars endpoint is not enabled in this deployment.",
+                "tip": "Contact administrator to enable fixed stars feature."
+            }
+        )
+
+    # Set request context
+    request_id = set_request_context()
+    start_time = time.perf_counter()
+
+    try:
+        # Import stars modules
+        from .stars.catalog import load_catalog, get_catalog_path, get_catalog_info
+        from .stars.compute import compute_star_positions
+
+        # Validate frame/epoch combination
+        if frame == "equatorial" and epoch != "J2000":
+            bad_request(
+                "INPUT.INVALID",
+                "Invalid frame/epoch combination",
+                "Equatorial frame requires J2000 epoch"
+            )
+
+        if frame == "ecliptic_of_date" and epoch == "J2000":
+            bad_request(
+                "INPUT.INVALID",
+                "Invalid frame/epoch combination",
+                "Ecliptic of date frame requires of_date epoch"
+            )
+
+        # Load star catalog
+        catalog_name = CONFIG.features.fixed_stars.catalog
+        mag_limit = CONFIG.features.fixed_stars.mag_limit
+        catalog_path = get_catalog_path(catalog_name)
+
+        stars = load_catalog(catalog_path, mag_limit)
+
+        if not stars:
+            bad_request(
+                "CATALOG.EMPTY",
+                "No stars found",
+                f"No stars found in catalog {catalog_name} with magnitude ≤ {mag_limit}"
+            )
+
+        # Compute star positions
+        star_positions = compute_star_positions(
+            stars=stars,
+            utc=utc,
+            frame=frame,
+            epoch=epoch,
+            apply_pm=apply_proper_motion
+        )
+
+        # Get catalog info
+        catalog_info = get_catalog_info(catalog_name)
+
+        # Build response
+        response_data = {
+            "utc": utc,
+            "frame": frame,
+            "epoch": epoch,
+            "catalog": {
+                "name": catalog_name,
+                "description": catalog_info.get("description", ""),
+                "total_loaded": len(stars),
+                "magnitude_limit": mag_limit,
+                "proper_motion_applied": apply_proper_motion
+            },
+            "count": len(star_positions),
+            "stars": star_positions
+        }
+
+        # Record metrics
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        business_logger.info(
+            "stars_positions_computed",
+            extra={
+                "catalog": catalog_name,
+                "frame": frame,
+                "epoch": epoch,
+                "star_count": len(star_positions),
+                "magnitude_limit": mag_limit,
+                "proper_motion": apply_proper_motion,
+                "duration_ms": duration_ms
+            }
+        )
+
+        return JSONResponse(
+            response_data,
+            headers={"X-Request-ID": request_id}
+        )
+
+    except Exception as e:
+        # Record error metrics
+        duration_ms = (time.perf_counter() - start_time) * 1000
+
+        if hasattr(e, 'status_code'):  # Already a properly formatted HTTPException
+            error_code = getattr(e, 'detail', {}).get('code', 'UNKNOWN') if isinstance(getattr(e, 'detail', None), dict) else 'UNKNOWN'
+            metrics.record_error(error_code)
+            raise e
+        else:
+            metrics.record_error("INTERNAL.UNEXPECTED")
+            logger.error(f"Unexpected error in fixed stars endpoint: {e}")
+            ErrorHandler.handle_service_error(e, "fixed_stars")

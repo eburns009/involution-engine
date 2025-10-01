@@ -1,0 +1,6 @@
+name,local_datetime,place_name,lat,lon,systems,ayanamsha_id,ayanamsha_value
+Tokyo_1987_11_15_0600,1987-11-15T06:00:00,Tokyo JP,35.6762,139.6503,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+London_2003_03_28_1445,2003-03-28T14:45:00,London GB,51.5074,-0.1278,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+NewYork_1972_05_01_1930,1972-05-01T19:30:00,New York NY US,40.7128,-74.0060,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+Sydney_1999_12_31_2359,1999-12-31T23:59:00,Sydney AU,-33.8688,151.2093,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+Boulder_2025_09_27_1200,2025-09-27T12:00:00,Boulder CO US,40.0150,-105.2705,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00

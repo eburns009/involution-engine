@@ -1,0 +1,226 @@
+name: Drift Detection
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      engine_base:
+        description: 'Engine base URL'
+        required: false
+        default: 'http://localhost:8080'
+        type: string
+      reference_data:
+        description: 'Reference data path'
+        required: false
+        default: 'tests/goldens/golden_positions.csv'
+        type: string
+
+jobs:
+  drift-detection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas numpy requests
+
+      - name: Build engine image (DE440-1900)
+        run: |
+          docker build -f server/Dockerfile.de440-1900 -t engine:drift .
+
+      - name: Start engine service
+        run: |
+          docker run -d --name engine -p 8080:8080 \
+            -e ENV=test \
+            -e DISABLE_RATE_LIMIT=1 \
+            engine:drift
+
+      - name: Wait for engine to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8080/healthz; do sleep 2; done'
+
+      - name: Run drift detection
+        env:
+          ENGINE_BASE: ${{ inputs.engine_base || 'http://localhost:8080' }}
+          DRIFT_REF: ${{ inputs.reference_data || 'tests/goldens/golden_positions.csv' }}
+          DRIFT_OUT: ops/drift/out
+        run: |
+          python ops/drift/drift_check.py
+
+      - name: Upload drift reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drift-reports-${{ github.run_number }}
+          path: ops/drift/out/*
+          retention-days: 90
+
+      - name: Engine logs (on failure)
+        if: failure()
+        run: |
+          echo "=== Engine Container Logs ==="
+          docker logs engine
+
+      - name: Engine health check (on failure)
+        if: failure()
+        run: |
+          echo "=== Engine Health Status ==="
+          curl -f http://localhost:8080/healthz || true
+          echo "=== Engine Metrics ==="
+          curl -f http://localhost:8080/metrics || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop engine || true
+          docker rm engine || true
+
+  analyze-historical-drift:
+    runs-on: ubuntu-latest
+    needs: drift-detection
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download current drift report
+        uses: actions/download-artifact@v4
+        with:
+          name: drift-reports-${{ github.run_number }}
+          path: current-drift/
+
+      - name: Download previous drift reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: drift-reports-*
+          path: historical-drift/
+          merge-multiple: true
+
+      - name: Analyze drift trends
+        run: |
+          echo "=== Drift Trend Analysis ==="
+
+          # Count historical reports
+          report_count=$(find historical-drift -name "drift_summary_*.json" | wc -l)
+          echo "Found $report_count historical drift reports"
+
+          # Show latest summary
+          latest_summary=$(find current-drift -name "drift_summary_*.json" | head -1)
+          if [ -f "$latest_summary" ]; then
+            echo "=== Latest Drift Summary ==="
+            cat "$latest_summary" | jq .
+          fi
+
+          # Compare with previous if available
+          prev_summary=$(find historical-drift -name "drift_summary_*.json" -not -path "current-drift/*" | sort | tail -1)
+          if [ -f "$prev_summary" ] && [ -f "$latest_summary" ]; then
+            echo "=== Drift Trend ==="
+            echo "Previous report: $(basename $prev_summary)"
+            echo "Current report: $(basename $latest_summary)"
+
+            prev_max=$(cat "$prev_summary" | jq -r '.max_diff_arcmin // "null"')
+            curr_max=$(cat "$latest_summary" | jq -r '.max_diff_arcmin // "null"')
+
+            prev_breaches=$(cat "$prev_summary" | jq -r '.tolerance_breaches // 0')
+            curr_breaches=$(cat "$latest_summary" | jq -r '.tolerance_breaches // 0')
+
+            echo "Max difference: $prev_max' -> $curr_max'"
+            echo "Tolerance breaches: $prev_breaches -> $curr_breaches"
+
+            if [ "$curr_breaches" -gt "$prev_breaches" ]; then
+              echo "⚠️  Drift increasing - tolerance breaches have increased"
+            elif [ "$curr_breaches" -lt "$prev_breaches" ]; then
+              echo "✅ Drift decreasing - tolerance breaches have decreased"
+            else
+              echo "➡️  Drift stable - no change in tolerance breaches"
+            fi
+          fi
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Find latest summary file
+            const summaryFiles = fs.readdirSync('current-drift')
+              .filter(f => f.startsWith('drift_summary_'))
+              .map(f => path.join('current-drift', f));
+
+            if (summaryFiles.length === 0) {
+              console.log('No drift summary found');
+              return;
+            }
+
+            const summaryFile = summaryFiles[0];
+            const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
+
+            const comment = `## 🔍 Drift Detection Results
+
+            | Metric | Value |
+            |--------|-------|
+            | Total Tests | ${summary.total_tests} |
+            | Failed Tests | ${summary.failed_tests} |
+            | Error Rate | ${summary.error_rate_percent}% |
+            | Tolerance Breaches | ${summary.tolerance_breaches} |
+            | Max Difference | ${summary.max_diff_arcmin?.toFixed(2) || 'N/A'} arcmin |
+            | P95 Difference | ${summary.p95_diff_arcmin?.toFixed(2) || 'N/A'} arcmin |
+
+            ${summary.tolerance_breaches > 0 ? '⚠️ **Drift detected!** Review the detailed report.' : '✅ **No drift detected** - all positions within tolerance.'}
+
+            <details>
+            <summary>Tolerance Thresholds</summary>
+
+            - Moon: 30 arcminutes
+            - Nodes (True/Mean): 5 arcminutes
+            - Other bodies: 1 arcminute
+
+            </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  notify-on-drift:
+    runs-on: ubuntu-latest
+    needs: drift-detection
+    if: failure() && github.event_name == 'schedule'
+
+    steps:
+      - name: Send notification
+        run: |
+          echo "🚨 DRIFT DETECTION ALERT 🚨"
+          echo "Weekly drift check has detected tolerance breaches!"
+          echo "Repository: ${{ github.repository }}"
+          echo "Run: ${{ github.run_id }}"
+          echo "Time: $(date -u)"
+          echo ""
+          echo "Action required:"
+          echo "1. Download drift reports from workflow artifacts"
+          echo "2. Investigate causes of drift"
+          echo "3. Update golden reference data if needed"
+          echo "4. Consider engine calibration if systematic drift"
+
+          # In production, integrate with:
+          # - Slack webhook
+          # - Email notifications
+          # - PagerDuty alerts
+          # - Custom monitoring systems

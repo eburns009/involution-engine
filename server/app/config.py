@@ -92,6 +92,30 @@ class EphemerisConfig(BaseModel):
         return v
 
 
+class FixedStarsConfig(BaseModel):
+    enabled: bool = False
+    catalog: str = "bsc5"  # "bsc5" (Yale Bright Star) or "hipparcos"
+    mag_limit: float = 2.5
+    topocentric: bool = False  # v1: geocentric only; topocentric in a later phase
+
+    @validator('catalog')
+    def validate_catalog(cls, v):
+        allowed = ["bsc5", "hipparcos"]
+        if v not in allowed:
+            raise ValueError(f"Invalid star catalog: {v}. Must be one of {allowed}")
+        return v
+
+    @validator('mag_limit')
+    def validate_mag_limit(cls, v):
+        if v < -2.0 or v > 10.0:
+            raise ValueError("Magnitude limit must be between -2.0 and 10.0")
+        return v
+
+
+class FeaturesConfig(BaseModel):
+    fixed_stars: FixedStarsConfig = FixedStarsConfig()
+
+
 class AppConfig(BaseModel):
     api: APIConfig = APIConfig()
     kernels: KernelConfig = KernelConfig()
@@ -100,6 +124,7 @@ class AppConfig(BaseModel):
     time: TimeConfig = TimeConfig()
     ephemeris: EphemerisConfig = EphemerisConfig()
     ratelimit: RateLimitConfig = RateLimitConfig()
+    features: FeaturesConfig = FeaturesConfig()
 
     class Config:
         extra = "forbid"  # Prevent unexpected config keys
@@ -153,6 +178,14 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     if "RATELIMIT_REDIS_URL" in os.environ:
         env_overrides.setdefault("ratelimit", {})["redis_url"] = os.environ["RATELIMIT_REDIS_URL"]
 
+    # Fixed stars feature overrides
+    if "FIXED_STARS_ENABLED" in os.environ:
+        env_overrides.setdefault("features", {}).setdefault("fixed_stars", {})["enabled"] = os.environ["FIXED_STARS_ENABLED"].lower() == "true"
+    if "FIXED_STARS_CATALOG" in os.environ:
+        env_overrides.setdefault("features", {}).setdefault("fixed_stars", {})["catalog"] = os.environ["FIXED_STARS_CATALOG"]
+    if "FIXED_STARS_MAG_LIMIT" in os.environ:
+        env_overrides.setdefault("features", {}).setdefault("fixed_stars", {})["mag_limit"] = float(os.environ["FIXED_STARS_MAG_LIMIT"])
+
     # Merge environment overrides into config data
     def merge_dict(base, override):
         for key, value in override.items():
@@ -187,4 +220,5 @@ def print_config(config: AppConfig) -> None:
     print(f"Ephemeris Policy: {config.ephemeris.policy}")
     print(f"DE440 Range: {config.ephemeris.de440_start} to {config.ephemeris.de440_end}")
     print(f"Ayanāṃśa Registry: {config.ephemeris.ayanamsa_registry_file}")
+    print(f"Fixed Stars: {'enabled' if config.features.fixed_stars.enabled else 'disabled'} (catalog: {config.features.fixed_stars.catalog}, mag ≤ {config.features.fixed_stars.mag_limit})")
     print("=" * 45)

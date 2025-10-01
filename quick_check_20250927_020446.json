@@ -1,0 +1,53 @@
+{
+  "timestamp": "2025-09-27T02:04:46.804894",
+  "service_status": "healthy",
+  "total_tests": 3,
+  "passed_tests": 0,
+  "failed_tests": 3,
+  "accuracy_issues": [
+    "Modern Reference 1: Sun error 0.375\u00b0, Ayanamsa error 0.698\u00b0",
+    "Modern Reference 2: Sun error 0.071\u00b0, Ayanamsa error 0.614\u00b0"
+  ],
+  "performance_metrics": {
+    "avg_response_time": 0.012616,
+    "total_time": 0.060089
+  },
+  "detailed_results": [
+    {
+      "chart_name": "Modern Reference 1",
+      "success": false,
+      "errors": [],
+      "measurements": {
+        "tropical_sun_longitude": 83.875036,
+        "sidereal_sun_longitude": 59.477491,
+        "ayanamsa": 24.397545,
+        "sun_position_error_deg": 0.3749640000000056,
+        "ayanamsa_error_deg": 0.6975450000000016,
+        "consistency_error_deg": 7.105427357601002e-15,
+        "response_time_sec": 0.016813
+      }
+    },
+    {
+      "chart_name": "Modern Reference 2",
+      "success": false,
+      "errors": [],
+      "measurements": {
+        "tropical_sun_longitude": 273.429003,
+        "sidereal_sun_longitude": 248.814675,
+        "ayanamsa": 24.614329,
+        "sun_position_error_deg": 0.0709969999999771,
+        "ayanamsa_error_deg": 0.6143290000000015,
+        "consistency_error_deg": 9.99999972606247e-07,
+        "response_time_sec": 0.013467
+      }
+    },
+    {
+      "chart_name": "Modern Reference 3",
+      "success": false,
+      "errors": [
+        "Tropical calculation failed: 500"
+      ],
+      "measurements": {}
+    }
+  ]
+}

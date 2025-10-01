@@ -1,0 +1,15 @@
+name,system,utc,body,lon_deg
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Sun,100.779070
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Moon,114.785034
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Mercury,79.244221
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Venus,138.730269
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Mars,55.766729
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Jupiter,342.692677
+edward_burns_fort_knox,tropical,1962-07-03T04:33:00Z,Saturn,310.051479
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Sun,76.562325
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Moon,90.568289
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Mercury,55.027476
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Venus,114.513524
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Mars,31.549984
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Jupiter,318.475932
+edward_burns_fort_knox,sidereal_fb,1962-07-03T04:33:00Z,Saturn,285.834734

@@ -150,3 +150,14 @@ kernels/pck/*.bpc
 .secrets.baseline
 .git-objects.txt
 diagnostics/
+
+# Docker volumes and data directories
+docker/time-resolver/nominatim_stack/pgdata/
+**/pgdata/
+
+# Large binary files (use download scripts instead)
+*.osm.pbf
+*.bsp
+*.zip
+!**/package.json
+!ui/package.json

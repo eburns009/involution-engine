@@ -1,0 +1,11 @@
+test_name,status,utc_match,zone_id_match,offset_match,dst_match,actual_utc,expected_utc,actual_zone_id,expected_zone_id,actual_offset,expected_offset,actual_dst,expected_dst,confidence,reason,warnings,patches_applied,error
+Edward Burns as_entered,PASS,YES,YES,YES,YES,1962-07-03T03:33:00+00:00,,America/New_York,,-14400,,True,,low,User-provided values used as requested (as_entered mode),Invalid user-provided zone 'EDT': 'EDT'; User zone 'EDT' differs from calculated 'America/New_York'. Corrected to EST per Fort Knox area used EST year-round before DST adoption,,
+Edward Burns strict_history,PASS,YES,YES,YES,YES,1962-07-03T04:33:00+00:00,,America/New_York,,-18000,,False,,medium,Fort Knox area used EST year-round before DST adoption,,kentucky_fort_knox_area,
+Edward Burns astro_com,PASS,YES,YES,YES,YES,1962-07-03T03:33:00+00:00,,America/New_York,,-14400,,True,,high,TZDB historical rules for America/New_York,,,
+Louisville 1950 strict_history,PASS,YES,YES,YES,YES,1950-06-15T18:00:00+00:00,,America/Chicago,,-21600,,True,,high,Louisville used Central Time before switching to Eastern in 1961,,kentucky_louisville_area,
+Michigan UP 1965 strict_history,PASS,YES,YES,YES,YES,1965-08-20T21:30:00+00:00,,America/Chicago,,-21600,,True,,high,Upper Peninsula used Central Time until 1973,,michigan_upper_peninsula,
+Arizona 1955 strict_history,PASS,YES,YES,YES,YES,1955-07-15T21:00:00+00:00,,America/Phoenix,,-25200,,True,,medium,Arizona observed DST during WWII and until 1967,,arizona_pre_1968,
+Hawaii territorial 1940 strict_history,PASS,YES,YES,YES,YES,1940-12-01T18:00:00+00:00,,Pacific/Honolulu,,-36000,,False,,high,Territorial Hawaii maintained consistent HST,,hawaii_territorial,
+Modern NYC 2023 strict_history,PASS,YES,YES,YES,YES,2023-07-15T19:30:00+00:00,,America/New_York,,-14400,,True,,high,TZDB historical rules for America/New_York,,,
+Modern LA 2023 strict_history,ERROR,,,,,,,,,,,,,,,,,400 Client Error: Bad Request for url: http://localhost:8000/v1/time/resolve
+User override EST,PASS,YES,YES,YES,YES,2023-07-15T20:30:00+00:00,,EST,,-18000,,False,,low,User-provided values used as requested (as_entered mode),User zone 'EST' differs from calculated 'America/New_York',,

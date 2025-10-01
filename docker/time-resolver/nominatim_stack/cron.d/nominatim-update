@@ -1,0 +1,22 @@
+# Run Nominatim replication nightly at 03:30 UTC
+# This will apply minutely/hourly diffs from the configured REPLICATION_URL
+# Enhanced with status reporting and monitoring
+30 3 * * *    root    /scripts/run_nominatim_update.sh >> /var/log/nominatim-updates.log 2>&1
+
+# Health check every 6 hours to ensure replication is working
+0 */6 * * *   root    /scripts/check_nominatim_health.sh >> /var/log/nominatim-health.log 2>&1
+
+# Daily log rotation and cleanup at 02:00 UTC
+0 2 * * *     root    /scripts/log_rotation.sh >> /var/log/log-rotation.log 2>&1
+
+# Disk space monitoring every 4 hours
+0 */4 * * *   root    /scripts/disk_monitor.sh >> /var/log/disk-monitor.log 2>&1
+
+# Performance metrics collection every hour
+0 * * * *     root    /scripts/performance_metrics.sh >> /var/log/performance.log 2>&1
+
+# Weekly comprehensive housekeeping on Sundays at 01:00 UTC
+0 1 * * 0     root    /scripts/housekeeping.sh >> /var/log/housekeeping.log 2>&1
+
+# Weekly backup on Sundays at 04:00 UTC
+0 4 * * 0     root    /scripts/backup_restore.sh backup full >> /var/log/backup.log 2>&1
