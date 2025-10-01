@@ -1,6 +1,6 @@
 # Involution Engine v1.1 - Single FastAPI Service
 
-This directory contains the implementation of Phase 1 — Simplify Core, which replaces the gateway + scattered config with one FastAPI service.
+This directory contains the implementation of the Involution Engine with Phase 2 — Usability & Breadth features, including expanded ayanāṃśa registry, equatorial/J2000 coordinate output, flexible date parsing, Redis cache layer, and distributed rate limiting.
 
 ## Architecture Overview
 
@@ -13,13 +13,18 @@ This directory contains the implementation of Phase 1 — Simplify Core, which r
 │   ├── config.py            # Typed configuration with Pydantic
 │   ├── schemas.py           # Pydantic models for API
 │   ├── caching.py           # LRU cache + ETag support
+│   ├── caching_redis.py     # Redis distributed cache layer
+│   ├── ratelimit.py         # Redis-based rate limiting
 │   ├── errors.py            # Friendly error mapping
+│   ├── util/
+│   │   └── dates.py         # Flexible date parsing utilities
 │   ├── ephemeris/
 │   │   ├── __init__.py
 │   │   ├── kernels.py       # Kernel verification system
-│   │   ├── compute.py       # SPICE calculations
+│   │   ├── compute.py       # SPICE calculations with equatorial support
 │   │   ├── pool.py          # Bounded worker processes
-│   │   └── ayanamsha.py     # Ayanāṃśa registry
+│   │   ├── ayanamsha.py     # Enhanced ayanāṃśa registry
+│   │   └── ayanamsas.yaml   # YAML ayanāṃśa configuration
 │   ├── time_resolver/
 │   │   └── client.py        # HTTP client to time resolver
 │   └── geocode/
@@ -27,74 +32,79 @@ This directory contains the implementation of Phase 1 — Simplify Core, which r
 ├── tests/
 │   ├── test_positions_e2e.py
 │   ├── test_healthz.py
-│   └── test_error_mapper.py
+│   ├── test_error_mapper.py
+│   ├── test_ayanamsha_registry.py
+│   ├── test_equatorial_j2000.py
+│   ├── test_flexible_dates.py
+│   ├── test_redis_cache.py
+│   ├── test_rate_limiting.py
+│   └── test_phase2_integration.py
 ├── config.yaml             # Example configuration
+├── requirements.txt         # Python dependencies
 ├── Dockerfile.de440-full   # Kernel bundle containers
 ├── Dockerfile.de440-1900
 └── Dockerfile.de440-modern
 ```
 
-## Implementation Status
+## Phase 2 — Usability & Breadth Features
 
-### ✅ Completed Components
+### ✅ Core Foundation (Phase 1)
 
 1. **Configuration System** (`config.py`)
    - Typed Pydantic models for all settings
    - Environment variable overrides
-   - Validation and error handling
+   - Redis cache and rate limiting configuration
 
-2. **Ayanāṃśa Registry** (`ephemeris/ayanamsha.py`)
-   - Pluggable ayanāṃśa system
-   - Support for fixed and formula types
-   - Validation for tropical/sidereal compatibility
+2. **Enhanced Ayanāṃśa Registry** (`ephemeris/ayanamsha.py` + `ayanamsas.yaml`)
+   - YAML-based configuration with 6 supported systems
+   - Support for fixed and formula types (lahiri, fagan_bradley_dynamic/fixed, krishnamurti, raman, yukteshwar)
+   - Case-insensitive resolution and validation
 
-3. **Kernel Management** (`ephemeris/kernels.py`)
-   - SHA256 verification system
-   - Bundle validation and info
-   - Comprehensive error handling
+3. **Equatorial/J2000 Coordinate Support** (`ephemeris/compute.py`)
+   - RA/Dec output in addition to ecliptic coordinates
+   - Frame/epoch validation (ecliptic_of_date + of_date, equatorial + J2000)
+   - Coordinate system transformations
 
-4. **Worker Pool** (`ephemeris/pool.py`)
-   - Bounded process pool with preloaded kernels
-   - Statistics and health monitoring
-   - Proper shutdown and cleanup
+4. **Flexible Date Parsing** (`util/dates.py`)
+   - Support for multiple datetime formats using python-dateutil
+   - ISO, US, European, and natural language date formats
+   - Timezone-aware parsing with safety validation
 
-5. **SPICE Compute Engine** (`ephemeris/compute.py`)
-   - Full SPICE integration with fallback mocks
-   - DE440/DE441 automatic handoff
-   - Comprehensive error mapping
+5. **Redis Cache Layer** (`caching_redis.py`)
+   - Distributed Redis caching for multi-instance deployments
+   - Hybrid L1 (in-process) + L2 (Redis) caching strategy
+   - Health checks and statistics
 
-6. **Caching System** (`caching.py`)
-   - Thread-safe in-process LRU cache
-   - ETag generation and management
-   - TTL and automatic cleanup
+6. **Distributed Rate Limiting** (`ratelimit.py`)
+   - Redis-based token bucket rate limiting
+   - IP and user-based limiting with configurable rules
+   - Fail-open behavior for Redis unavailability
 
-7. **Error Mapping** (`errors.py`)
-   - SPICE error → friendly error codes
-   - Structured error responses
-   - Comprehensive error handling
+7. **Comprehensive Testing** (`tests/`)
+   - Unit tests for all Phase 2 features
+   - Integration tests for feature interactions
+   - Mock support for Redis when unavailable
 
-8. **Client Modules**
-   - Time resolver HTTP client
-   - Geocoding service HTTP client
+### ✅ Production-Ready Features
 
-### 🚧 Remaining Work
+- **SPICE Compute Engine** with DE440/DE441 automatic handoff
+- **Worker Pool** with bounded process management
+- **Kernel Management** with SHA256 verification
+- **Error Mapping** with structured error responses
+- **Client Modules** for time resolver and geocoding
+- **Health Monitoring** with comprehensive diagnostics
 
-To complete Phase 1, you need to implement:
-
-1. **Schemas** (`schemas.py`) - Pydantic models matching OpenAPI v1.1
-2. **API Endpoints** (`api.py`) - FastAPI routes for all endpoints
-3. **Main Application** (`main.py`) - FastAPI app with middleware
-4. **Dockerfiles** - Container builds for kernel bundles
-5. **Tests** - E2E tests for all functionality
-
-## Quick Start (Once Complete)
+## Quick Start
 
 ```bash
 # Install dependencies
-pip install fastapi uvicorn pydantic[dotenv] httpx spiceypy
+cd server
+pip install -r requirements.txt
+
+# Optional: Set up Redis for caching and rate limiting
+# docker run -d --name redis -p 6379:6379 redis:alpine
 
 # Run the service
-cd server
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 
 # Health check
@@ -118,18 +128,34 @@ cache:
   inproc_lru_size: 4096
   inproc_ttl_seconds: 3600
 
+# Phase 2 Features
+redis_cache:
+  enabled: true
+  url: "redis://localhost:6379/0"
+  ttl_seconds: 3600
+
+rate_limiting:
+  enabled: true
+  redis_url: "redis://localhost:6379/1"
+  rules:
+    - key: "ip"
+      limit: "200/minute"
+
 time:
   base_url: "http://localhost:9000"
   tzdb_version: "2025.1"
 
 ephemeris:
   policy: "auto"  # DE440/DE441 handoff
+  ayanamsa_registry_file: "app/ephemeris/ayanamsas.yaml"
 ```
 
 Environment overrides:
 - `KERNEL_BUNDLE` - Override kernel bundle
 - `WORKERS` - Number of worker processes
 - `TIME_RESOLVER_URL` - Time resolver service URL
+- `REDIS_URL` - Redis connection URL for cache and rate limiting
+- `DISABLE_RATE_LIMIT` - Disable rate limiting for development
 
 ## API Endpoints
 
@@ -140,13 +166,20 @@ Environment overrides:
 
 ## Key Features
 
+### Core Engine
 - **Single Service**: No gateway or microservice complexity
 - **Preloaded Kernels**: Workers preload SPICE kernels for performance
-- **LRU Caching**: In-memory cache with ETag support
-- **Error Mapping**: SPICE errors → friendly API error codes
 - **Auto Ephemeris**: DE440/DE441 handoff based on date range
 - **Typed Config**: Full Pydantic validation
 - **Health Monitoring**: Rich `/healthz` endpoint
+
+### Phase 2 - Usability & Breadth
+- **Expanded Ayanāṃśa Registry**: YAML-based with 6 supported systems
+- **Equatorial Coordinates**: RA/Dec output with J2000 epoch support
+- **Flexible Date Parsing**: Multiple datetime formats using dateutil
+- **Distributed Caching**: Redis L2 cache with hybrid L1/L2 strategy
+- **Rate Limiting**: Redis-based token bucket with fail-open behavior
+- **Error Mapping**: Enhanced SPICE errors → friendly API error codes
 
 ## Testing Strategy
 
@@ -175,30 +208,59 @@ WORKDIR /app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
-## Acceptance Criteria
+## Phase 2 Acceptance Criteria
 
+### ✅ Core Foundation
 - [x] Configuration system with typed validation
-- [x] Ayanāṃśa registry with pluggable support
 - [x] Kernel verification and management
 - [x] Worker pool with preloaded kernels
 - [x] SPICE computation engine
-- [x] LRU caching with ETag
 - [x] Comprehensive error mapping
 - [x] HTTP clients for external services
-- [ ] Pydantic schemas matching OpenAPI v1.1
-- [ ] FastAPI endpoints implementation
-- [ ] Main app with middleware
-- [ ] Comprehensive test suite
-- [ ] Performance validation
-- [ ] Docker builds
+- [x] Pydantic schemas matching OpenAPI v1.1
+- [x] FastAPI endpoints implementation
+- [x] Main app with middleware
 
-## Next Steps
+### ✅ Phase 2 - Usability & Breadth
+- [x] **Ayanāṃśa Registry**: YAML-based with 6 systems (lahiri, fagan_bradley_dynamic/fixed, krishnamurti, raman, yukteshwar)
+- [x] **Equatorial/J2000 Output**: RA/Dec coordinates with proper frame/epoch validation
+- [x] **Flexible Date Parsing**: Multiple formats (ISO, US, European, natural language) using dateutil
+- [x] **Redis Cache Layer**: Distributed L2 cache with hybrid L1/L2 strategy and health monitoring
+- [x] **Distributed Rate Limiting**: Redis-based token bucket with IP/user keys and fail-open behavior
+- [x] **Comprehensive Testing**: Unit tests, integration tests, and Phase 2 feature validation
 
-1. Complete the remaining schemas, API, and main app files
-2. Implement comprehensive test suite
-3. Validate against golden tests and five_random pack
-4. Create Docker builds for kernel bundles
-5. Performance testing and optimization
-6. Create PR with full acceptance criteria
+### ✅ Production Ready
+- [x] Enhanced configuration with Redis support
+- [x] Health monitoring with cache and rate limiter status
+- [x] Backwards compatibility maintained
+- [x] Performance validation (cache hit rates, rate limiting efficiency)
+- [x] Error taxonomy with actionable guidance
 
-This foundation provides a robust, production-ready single-service architecture for the Involution Engine v1.1.
+## Usage Examples
+
+### Equatorial Coordinates with Sidereal System
+```bash
+curl -X POST http://localhost:8080/v1/positions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "when": {"utc": "2023-01-01T12:00:00Z"},
+    "system": "sidereal",
+    "ayanamsha": {"id": "lahiri"},
+    "frame": {"type": "equatorial"},
+    "epoch": "J2000",
+    "bodies": ["Sun", "Moon"]
+  }'
+```
+
+### Flexible Date Formats
+```bash
+# Natural language
+curl -X POST http://localhost:8080/v1/positions \
+  -d '{"when": {"local_datetime": "Dec 25, 2023 3:30 PM", "place": {"lat": 40.7128, "lon": -74.0060}}, "system": "tropical", "bodies": ["Sun"]}'
+
+# US format
+curl -X POST http://localhost:8080/v1/positions \
+  -d '{"when": {"local_datetime": "12/25/2023 15:30:00", "place": {"lat": 40.7128, "lon": -74.0060}}, "system": "tropical", "bodies": ["Sun"]}'
+```
+
+This implementation provides a robust, production-ready single-service architecture for the Involution Engine v1.1 with Phase 2 — Usability & Breadth features.

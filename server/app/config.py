@@ -23,10 +23,17 @@ class KernelConfig(BaseModel):
         return v
 
 
+class RedisCacheConfig(BaseModel):
+    enabled: bool = False
+    url: str = "redis://redis:6379/0"
+    ttl_seconds: int = 3600
+
+
 class CacheConfig(BaseModel):
     inproc_lru_enabled: bool = True
     inproc_lru_size: int = 2048
     inproc_ttl_seconds: int = 3600
+    redis: RedisCacheConfig = RedisCacheConfig()
 
     @validator('inproc_lru_size')
     def validate_cache_size(cls, v):
@@ -59,11 +66,23 @@ class TimeConfig(BaseModel):
         return v
 
 
-class EphemerisPolicy(BaseModel):
+class RateLimitRule(BaseModel):
+    key: str = "ip"
+    limit: str = "200/minute"  # parse as tokens/minute
+
+
+class RateLimitConfig(BaseModel):
+    enabled: bool = False
+    redis_url: str = "redis://redis:6379/1"
+    rules: List[RateLimitRule] = [RateLimitRule()]
+
+
+class EphemerisConfig(BaseModel):
     policy: str = "auto"  # auto | de440 | de441
     de440_start: str = "1550-01-01T00:00:00Z"
     de440_end: str = "2650-01-01T00:00:00Z"
     default: str = "de441"
+    ayanamsa_registry_file: str = "server/app/ephemeris/ayanamsas.yaml"
 
     @validator('policy')
     def validate_policy(cls, v):
@@ -79,7 +98,8 @@ class AppConfig(BaseModel):
     cache: CacheConfig = CacheConfig()
     geocoding: GeocodeConfig = GeocodeConfig()
     time: TimeConfig = TimeConfig()
-    ephemeris: EphemerisPolicy = EphemerisPolicy()
+    ephemeris: EphemerisConfig = EphemerisConfig()
+    ratelimit: RateLimitConfig = RateLimitConfig()
 
     class Config:
         extra = "forbid"  # Prevent unexpected config keys
@@ -121,6 +141,18 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     if "GEOCODE_URL" in os.environ:
         env_overrides.setdefault("geocoding", {})["base_url"] = os.environ["GEOCODE_URL"]
 
+    # Redis cache overrides
+    if "REDIS_CACHE_ENABLED" in os.environ:
+        env_overrides.setdefault("cache", {}).setdefault("redis", {})["enabled"] = os.environ["REDIS_CACHE_ENABLED"].lower() == "true"
+    if "REDIS_CACHE_URL" in os.environ:
+        env_overrides.setdefault("cache", {}).setdefault("redis", {})["url"] = os.environ["REDIS_CACHE_URL"]
+
+    # Rate limiting overrides
+    if "RATELIMIT_ENABLED" in os.environ:
+        env_overrides.setdefault("ratelimit", {})["enabled"] = os.environ["RATELIMIT_ENABLED"].lower() == "true"
+    if "RATELIMIT_REDIS_URL" in os.environ:
+        env_overrides.setdefault("ratelimit", {})["redis_url"] = os.environ["RATELIMIT_REDIS_URL"]
+
     # Merge environment overrides into config data
     def merge_dict(base, override):
         for key, value in override.items():
@@ -145,11 +177,14 @@ def print_config(config: AppConfig) -> None:
     print(f"Rate Limit: {config.api.rate_limit}")
     print(f"Kernel Bundle: {config.kernels.bundle}")
     print(f"Kernel Path: {config.kernels.path}")
-    print(f"Cache Size: {config.cache.inproc_lru_size} (TTL: {config.cache.inproc_ttl_seconds}s)")
+    print(f"Cache In-Proc: {config.cache.inproc_lru_size} entries (TTL: {config.cache.inproc_ttl_seconds}s)")
+    print(f"Cache Redis: {'enabled' if config.cache.redis.enabled else 'disabled'} ({config.cache.redis.url})")
+    print(f"Rate Limiting: {'enabled' if config.ratelimit.enabled else 'disabled'} ({config.ratelimit.redis_url})")
     print(f"Time Resolver: {config.time.base_url}")
     print(f"TZDB Version: {config.time.tzdb_version}")
     print(f"Parity Profile: {config.time.parity_profile_default}")
     print(f"Geocoding: {config.geocoding.base_url}")
     print(f"Ephemeris Policy: {config.ephemeris.policy}")
     print(f"DE440 Range: {config.ephemeris.de440_start} to {config.ephemeris.de440_end}")
+    print(f"Ayanāṃśa Registry: {config.ephemeris.ayanamsa_registry_file}")
     print("=" * 45)

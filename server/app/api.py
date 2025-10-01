@@ -19,6 +19,7 @@ from .config import AppConfig
 from .obs.logging import StructuredLogger, TimedOperation, set_request_context
 from .obs.metrics import metrics
 from .obs.tracing import trace_positions, trace_time_resolve, trace_geocode, add_trace_attribute
+from .util.dates import try_parse_local, validate_utc_format
 
 # Structured logger for business operations
 business_logger = StructuredLogger(__name__)
@@ -56,9 +57,18 @@ async def positions(req: PositionsRequest, request: Request):
         ayanamsha_id = req.ayanamsha.id if req.ayanamsha else None
         validate_ayanamsha_for_system(req.system, ayanamsha_id)
 
-        # Derive UTC time
+        # Derive UTC time with flexible parsing
         if req.when.utc:
-            utc = req.when.utc
+            # Validate and normalize UTC format
+            try:
+                utc = validate_utc_format(req.when.utc)
+            except ValueError as e:
+                bad_request(
+                    "INPUT.INVALID",
+                    "Invalid UTC datetime format",
+                    str(e),
+                    "Use ISO 8601 format with Z suffix, e.g., '2023-12-25T15:30:00Z'"
+                )
         else:
             # Validate place information for local time
             if not req.when.place or (
@@ -72,10 +82,21 @@ async def positions(req: PositionsRequest, request: Request):
                     "Include complete place information or use UTC time directly."
                 )
 
+            # Parse and validate local datetime format
+            try:
+                normalized_local = try_parse_local(req.when.local_datetime)
+            except ValueError as e:
+                bad_request(
+                    "INPUT.INVALID",
+                    "Invalid local datetime format",
+                    str(e),
+                    "Use formats like '2023-12-25T15:30:00' or 'Dec 25, 2023 3:30 PM'"
+                )
+
             # Resolve local time to UTC
             place_data = req.when.place.dict(exclude_none=True)
             utc = await resolve_time(
-                local_datetime=req.when.local_datetime,
+                local_datetime=normalized_local,
                 place=place_data,
                 config=CONFIG.time,
                 parity_profile=req.parity_profile

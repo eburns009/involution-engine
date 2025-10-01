@@ -165,6 +165,12 @@ def compute_positions(
     # Validate inputs
     _validate_computation_inputs(utc, system, frame, epoch, bodies)
 
+    # Validate frame/epoch combination (Phase 2 limitation)
+    if frame == "equatorial" and epoch != "J2000":
+        raise ValueError("INPUT.INVALID: Equatorial frame requires J2000 epoch in Phase 2")
+    if frame == "ecliptic_of_date" and epoch != "of_date":
+        raise ValueError("INPUT.INVALID: Ecliptic of date frame requires of_date epoch")
+
     try:
         # Parse UTC time and convert to Julian Date
         dt = parse_datetime(utc)
@@ -307,8 +313,14 @@ def _calculate_spice_position(
         # Observer is Earth center (geocentric)
         observer = 399  # Earth
 
-        # Reference frame for SPICE
-        spice_frame = "ECLIPJ2000" if frame == "ecliptic_of_date" else "J2000"
+        # Determine SPICE reference frame based on requested frame/epoch
+        if frame == "ecliptic_of_date" and epoch == "of_date":
+            spice_frame = "ECLIPDATE"  # Ecliptic and equinox of date
+        elif frame == "equatorial" and epoch == "J2000":
+            spice_frame = "J2000"  # Equatorial J2000
+        else:
+            # Fallback to ECLIPJ2000 for other combinations
+            spice_frame = "ECLIPJ2000"
 
         # Calculate position and velocity
         state, light_time = spice.spkezr(str(spice_code), et, spice_frame, "LT+S", str(observer))
@@ -316,21 +328,28 @@ def _calculate_spice_position(
         # Extract position (first 3 elements are position, last 3 are velocity)
         position = state[:3]
 
-        # Convert to spherical coordinates
-        lon_deg, lat_deg, radius = _cartesian_to_spherical(position)
+        result = {"name": body}
 
-        result = {
-            "name": body,
-            "lon_deg": lon_deg,
-            "lat_deg": lat_deg
-        }
+        if frame == "ecliptic_of_date":
+            # Convert to ecliptic longitude/latitude
+            lon_deg, lat_deg, radius = _cartesian_to_spherical(position)
+            result.update({
+                "lon_deg": lon_deg,
+                "lat_deg": lat_deg
+            })
 
-        # Add equatorial coordinates if requested
-        if frame == "equatorial":
-            ra_hours, dec_deg = _ecliptic_to_equatorial(lon_deg, lat_deg, et)
+        elif frame == "equatorial" and epoch == "J2000":
+            # Position is already in J2000 equatorial coordinates
+            ra_hours, dec_deg = _cartesian_to_equatorial(position)
             result.update({
                 "ra_hours": ra_hours,
                 "dec_deg": dec_deg
+            })
+            # Also include ecliptic coordinates for compatibility
+            lon_deg, lat_deg, radius = _cartesian_to_spherical_ecliptic(position)
+            result.update({
+                "lon_deg": lon_deg,
+                "lat_deg": lat_deg
             })
 
         return result
@@ -366,11 +385,21 @@ def _calculate_mock_position(body: str, et: float) -> Dict[str, Any]:
     time_variation = (et / 86400.0) * 0.1  # Small daily motion
     lon_deg = (base_lon + time_variation) % 360
 
-    return {
+    result = {
         "name": body,
         "lon_deg": lon_deg,
         "lat_deg": 0.0  # Mock latitude
     }
+
+    # Add mock RA/Dec for equatorial requests
+    ra_hours = (lon_deg / 15.0) % 24  # Convert longitude to hours
+    dec_deg = 0.0  # Mock declination
+    result.update({
+        "ra_hours": ra_hours,
+        "dec_deg": dec_deg
+    })
+
+    return result
 
 
 def _calculate_lunar_node(body: str, et: float, frame: str) -> Dict[str, Any]:
@@ -411,6 +440,46 @@ def _cartesian_to_spherical(position: List[float]) -> Tuple[float, float, float]
         lon_deg += 360
 
     # Latitude (-90 to +90 degrees)
+    lat_rad = math.asin(z / radius) if radius > 0 else 0
+    lat_deg = math.degrees(lat_rad)
+
+    return lon_deg, lat_deg, radius
+
+
+def _cartesian_to_equatorial(position: List[float]) -> Tuple[float, float]:
+    """Convert Cartesian coordinates to equatorial (RA, Dec)."""
+    import math
+
+    x, y, z = position
+    radius = math.sqrt(x*x + y*y + z*z)
+
+    # Right Ascension (0-24 hours)
+    ra_rad = math.atan2(y, x)
+    ra_hours = math.degrees(ra_rad) / 15.0  # Convert to hours
+    if ra_hours < 0:
+        ra_hours += 24
+
+    # Declination (-90 to +90 degrees)
+    dec_rad = math.asin(z / radius) if radius > 0 else 0
+    dec_deg = math.degrees(dec_rad)
+
+    return ra_hours, dec_deg
+
+
+def _cartesian_to_spherical_ecliptic(position: List[float]) -> Tuple[float, float, float]:
+    """Convert Cartesian coordinates to ecliptic spherical coordinates."""
+    import math
+
+    x, y, z = position
+    radius = math.sqrt(x*x + y*y + z*z)
+
+    # Ecliptic longitude (0-360 degrees)
+    lon_rad = math.atan2(y, x)
+    lon_deg = math.degrees(lon_rad)
+    if lon_deg < 0:
+        lon_deg += 360
+
+    # Ecliptic latitude (-90 to +90 degrees)
     lat_rad = math.asin(z / radius) if radius > 0 else 0
     lat_deg = math.degrees(lat_rad)
 

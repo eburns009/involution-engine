@@ -1,31 +1,40 @@
+import yaml
+import os
 from typing import Optional, Dict, Any
 import math
 
 
-# Minimal built-in registry (extend later or load from YAML)
-REGISTRY: Dict[str, Dict[str, Any]] = {
-    "FAGAN_BRADLEY_DYNAMIC": {
-        "type": "formula",
-        "id": "FAGAN_BRADLEY_DYNAMIC",
-        "description": "Fagan-Bradley dynamic ayanāṃśa based on Spica"
-    },
-    "FAGAN_BRADLEY_FIXED": {
-        "type": "fixed",
-        "value_deg": 24.2166666667,  # 24°13'
-        "description": "Fagan-Bradley fixed ayanāṃśa (24°13')"
-    },
-    "LAHIRI": {
-        "type": "formula",
-        "id": "LAHIRI",
-        "description": "Lahiri (Chitrapaksha) ayanāṃśa - Indian national standard"
-    },
-    # Will add KRISHNAMURTI, RAMAN, YUKTESHWAR in Phase 2
-}
+# Global registry loaded from YAML
+_REGISTRY: Dict[str, dict] = {}
+
+
+def load_registry(path: str) -> None:
+    """
+    Load ayanāṃśa registry from YAML file.
+
+    Args:
+        path: Path to ayanamsas.yaml file
+    """
+    global _REGISTRY
+
+    if not os.path.exists(path):
+        # Fallback built-in registry
+        _REGISTRY = {
+            "lahiri": {"type": "formula", "formula": "lahiri"},
+            "fagan_bradley_dynamic": {"type": "formula", "formula": "fagan_bradley_dynamic"},
+            "fagan_bradley_fixed": {"type": "fixed", "value_deg": 24.2166666667},
+        }
+        return
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+
+    _REGISTRY = data
 
 
 def get_available_ayanamshas() -> Dict[str, str]:
-    """Get list of available ayanāṃśa IDs with descriptions."""
-    return {id: data["description"] for id, data in REGISTRY.items()}
+    """Get list of available ayanāṃśa IDs with types."""
+    return {id: data.get("type", "unknown") for id, data in _REGISTRY.items()}
 
 
 def resolve_ayanamsha(id: Optional[str]) -> Dict[str, Any]:
@@ -41,14 +50,18 @@ def resolve_ayanamsha(id: Optional[str]) -> Dict[str, Any]:
     Raises:
         ValueError: If ayanāṃśa ID is not supported
     """
-    if not id:
-        return {"id": "LAHIRI", "type": "formula"}
+    if id is None:
+        return {"id": "lahiri", "type": "formula", "formula": "lahiri"}
 
-    if id not in REGISTRY:
-        available = ", ".join(REGISTRY.keys())
+    key = id.strip().lower()
+
+    if key not in _REGISTRY:
+        available = ", ".join(_REGISTRY.keys())
         raise ValueError(f"AYANAMSHA.UNSUPPORTED: '{id}' not in registry. Available: {available}")
 
-    return REGISTRY[id].copy()
+    config = _REGISTRY[key].copy()
+    config["id"] = key
+    return config
 
 
 def calculate_fixed_ayanamsha(ayanamsha_config: Dict[str, Any]) -> float:
@@ -91,23 +104,39 @@ def calculate_formula_ayanamsha(ayanamsha_config: Dict[str, Any], jd: float) -> 
     if ayanamsha_config.get("type") != "formula":
         raise ValueError("calculate_formula_ayanamsha only works with 'formula' type ayanāṃśas")
 
-    ayanamsha_id = ayanamsha_config.get("id")
+    formula = ayanamsha_config.get("formula") or ayanamsha_config.get("id")
 
     # Placeholder calculations - in real implementation, use SPICE/Swiss Ephemeris
-    if ayanamsha_id == "LAHIRI":
+    # Time in Julian centuries since J2000.0
+    t = (jd - 2451545.0) / 36525.0
+
+    if formula == "lahiri":
         # Simplified Lahiri calculation (approximate)
         # Real implementation would use precise IAU precession formulas
-        t = (jd - 2451545.0) / 36525.0  # Centuries since J2000.0
         return 23.85 + 0.3964 * t  # Very simplified!
 
-    elif ayanamsha_id == "FAGAN_BRADLEY_DYNAMIC":
+    elif formula == "fagan_bradley_dynamic":
         # Simplified Fagan-Bradley calculation (approximate)
         # Real implementation would use Spica position calculations
-        t = (jd - 2451545.0) / 36525.0
         return 24.04 + 0.3962 * t  # Very simplified!
 
+    elif formula == "krishnamurti":
+        # Krishnamurti ayanāṃśa (KP system)
+        # Similar to Lahiri but with slight differences
+        return 23.51 + 0.3964 * t
+
+    elif formula == "raman":
+        # B.V. Raman ayanāṃśa
+        # Based on Revati star system
+        return 21.98 + 0.3964 * t
+
+    elif formula == "yukteshwar":
+        # Sri Yukteshwar ayanāṃśa
+        # From "The Holy Science"
+        return 22.46 + 0.3964 * t
+
     else:
-        raise ValueError(f"Formula calculation not implemented for ayanāṃśa: {ayanamsha_id}")
+        raise ValueError(f"Formula calculation not implemented for ayanāṃśa: {formula}")
 
 
 def get_ayanamsha_value(ayanamsha_config: Dict[str, Any], jd: Optional[float] = None) -> float:
