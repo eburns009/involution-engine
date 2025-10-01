@@ -1,0 +1,6 @@
+name,local_datetime,place_name,lat,lon,systems,ayanamsha_id,ayanamsha_value
+edward_burns_fort_knox,1962-07-02T23:33:00,,37.840347,-85.949127,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+john_doe_new_york,1985-03-15T14:30:00,,40.7128,-74.0060,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+jane_smith_london,1990-11-22T09:45:00,,51.5074,-0.1278,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+michael_johnson_tokyo,1975-06-08T18:20:00,,35.6762,139.6503,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
+sarah_wilson_sydney,1988-12-03T21:15:00,,-33.8688,151.2093,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00

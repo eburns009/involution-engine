@@ -1,0 +1,11 @@
+name,system,utc,body,lon_deg
+# Template for reference position data
+# name: Must match name from charts_input file
+# system: tropical, sidereal_fb (Fagan-Bradley), sidereal_lahiri
+# utc: UTC timestamp in ISO format (YYYY-MM-DDTHH:mm:ssZ)
+# body: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, TrueNode, MeanNode
+# lon_deg: Longitude in degrees (0-360)
+#
+# Example Fort Knox test (1962-07-02 23:33 local → 1962-07-03 04:33 UTC):
+# fort_knox_test,tropical,1962-07-03T04:33:00Z,Sun,100.779070
+# fort_knox_test,sidereal_fb,1962-07-03T04:33:00Z,Sun,76.562325

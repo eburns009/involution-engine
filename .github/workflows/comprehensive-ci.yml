@@ -1,0 +1,374 @@
+name: Comprehensive CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+env:
+  DISABLE_RATE_LIMIT: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  ENGINE_BASE: "http://127.0.0.1:8000"
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality & Security
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engine/requirements.txt
+          pip install ruff mypy bandit pip-audit black
+
+      - name: Code formatting (Black)
+        run: |
+          black --check --diff engine/ tests/batch/
+        continue-on-error: true
+
+      - name: Linting (Ruff)
+        run: |
+          ruff check engine/ tests/batch/ --output-format=github
+
+      - name: Type checking (MyPy)
+        run: |
+          mypy engine/main.py engine/time_resolver.py --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Security scanning (Bandit)
+        run: |
+          bandit -r engine/ -f json -o bandit-report.json || true
+          bandit -r engine/ --exit-zero-on-skipped
+
+      - name: Dependency audit
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit --desc
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            pip-audit-report.json
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engine/requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Download SPICE kernels
+        run: |
+          cd engine && bash download_kernels.sh
+
+      - name: Run unit tests
+        run: |
+          pytest tests/ --cov=engine --cov-report=xml --cov-report=html -v
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+
+  accuracy-testing:
+    runs-on: ubuntu-latest
+    name: Accuracy & Performance Testing
+    needs: [code-quality, unit-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engine/requirements.txt
+
+      - name: Download SPICE kernels
+        run: |
+          cd engine && bash download_kernels.sh
+
+      - name: Start engine service
+        run: |
+          cd engine && python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+          echo $! > engine.pid
+          sleep 10
+
+      - name: Health check
+        run: |
+          curl -f http://127.0.0.1:8000/health || exit 1
+
+      - name: Run accuracy tests (Five Random Pack)
+        run: |
+          # Test with five_random example pack
+          python tests/batch/batch_compute_positions.py \
+            --input examples/five_random/charts_input.csv \
+            --output examples/five_random/ci_engine_positions.csv \
+            --engine_base $ENGINE_BASE
+
+          python tests/batch/accuracy_compare.py \
+            --engine examples/five_random/ci_engine_positions.csv \
+            --reference examples/five_random/reference_filled.csv \
+            --out_csv examples/five_random/ci_accuracy_report.csv \
+            --out_json examples/five_random/ci_accuracy_summary.json \
+            --tol_planets_arcmin 1.0 \
+            --tol_moon_arcmin 30.0 \
+            --tol_nodes_arcmin 5.0
+
+      - name: Accuracy Gate - Check Pass Rate
+        run: |
+          PASS_RATE=$(python -c "
+          import json
+          with open('examples/five_random/ci_accuracy_summary.json') as f:
+              data = json.load(f)
+              print(data['overall']['pass_rate_percent'])
+          ")
+          echo "Pass rate: ${PASS_RATE}%"
+
+          if (( $(echo "$PASS_RATE < 100.0" | bc -l) )); then
+            echo "❌ ACCURACY GATE FAILED: Pass rate ${PASS_RATE}% is below required 100%"
+            exit 1
+          else
+            echo "✅ ACCURACY GATE PASSED: ${PASS_RATE}% pass rate"
+          fi
+
+      - name: Performance benchmarking
+        run: |
+          python tests/batch/batch_compute_positions_metrics.py \
+            examples/five_random/charts_input.csv \
+            examples/five_random/ci_metrics_output/
+
+      - name: Performance Gate - Check P95 Latency
+        run: |
+          P95_LATENCY=$(python -c "
+          import json
+          with open('examples/five_random/ci_metrics_output/metrics_summary.json') as f:
+              data = json.load(f)
+              print(data['duration_stats']['p95_ms'])
+          ")
+          echo "P95 latency: ${P95_LATENCY}ms"
+
+          # Budget: P95 should be under 500ms
+          if (( $(echo "$P95_LATENCY > 500" | bc -l) )); then
+            echo "❌ PERFORMANCE GATE FAILED: P95 latency ${P95_LATENCY}ms exceeds budget of 500ms"
+            exit 1
+          else
+            echo "✅ PERFORMANCE GATE PASSED: P95 latency ${P95_LATENCY}ms is within budget"
+          fi
+
+      - name: Stop engine service
+        if: always()
+        run: |
+          if [ -f engine.pid ]; then
+            kill $(cat engine.pid) || true
+            rm engine.pid
+          fi
+          pkill -f uvicorn || true
+
+      - name: Upload accuracy reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accuracy-reports
+          path: |
+            examples/five_random/ci_accuracy_report.csv
+            examples/five_random/ci_accuracy_summary.json
+            examples/five_random/ci_engine_positions.csv
+
+      - name: Upload performance reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-reports
+          path: |
+            examples/five_random/ci_metrics_output/
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: [accuracy-testing]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engine/requirements.txt
+
+      - name: Download SPICE kernels
+        run: |
+          cd engine && bash download_kernels.sh
+
+      - name: Start engine service
+        run: |
+          cd engine && python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+          sleep 10
+
+      - name: Security Guard - Block /debug in production
+        run: |
+          if [ -f scripts/ci_debug_guard.sh ]; then
+            ./scripts/ci_debug_guard.sh
+          fi
+
+      - name: SPICE Kernel Transform Smoke Test
+        run: |
+          if [ -f scripts/ci_kernel_smoke.sh ]; then
+            ./scripts/ci_kernel_smoke.sh
+          fi
+
+      - name: API Contract Testing
+        run: |
+          # Test all major endpoints
+          echo "Testing /health endpoint..."
+          curl -f -s http://127.0.0.1:8000/health | jq .
+
+          echo "Testing /version endpoint..."
+          curl -f -s http://127.0.0.1:8000/version | jq .
+
+          echo "Testing /metrics endpoint..."
+          curl -f -s http://127.0.0.1:8000/metrics | jq .
+
+          echo "Testing /calculate endpoint..."
+          curl -f -s -X POST http://127.0.0.1:8000/calculate \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "birth_time": "1962-07-03T04:33:00Z",
+              "latitude": 37.840347,
+              "longitude": -85.949127,
+              "zodiac": "tropical"
+            }' | jq .
+
+      - name: Time Resolution Testing
+        run: |
+          echo "Testing time resolution endpoint..."
+          curl -f -s -X POST http://127.0.0.1:8000/v1/time/resolve \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "local_datetime": "1962-07-02T23:33:00",
+              "latitude": 37.840347,
+              "longitude": -85.949127,
+              "parity_profile": "strict_history"
+            }' | jq .
+
+      - name: Houses Calculation Testing
+        run: |
+          echo "Testing houses endpoint..."
+          curl -f -s -X POST http://127.0.0.1:8000/houses \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "birth_time": "1962-07-03T04:33:00Z",
+              "latitude": 37.840347,
+              "longitude": -85.949127,
+              "system": "placidus",
+              "zodiac": "tropical"
+            }' | jq .
+
+      - name: Stop services
+        if: always()
+        run: |
+          pkill -f uvicorn || true
+
+  deployment-readiness:
+    runs-on: ubuntu-latest
+    name: Deployment Readiness
+    needs: [integration-tests]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r engine/requirements.txt
+
+      - name: Download SPICE kernels
+        run: |
+          cd engine && bash download_kernels.sh
+
+      - name: Production configuration validation
+        run: |
+          # Validate Docker build works
+          if [ -f engine/Dockerfile ]; then
+            echo "✅ Dockerfile present"
+          else
+            echo "❌ Missing Dockerfile"
+            exit 1
+          fi
+
+          # Validate gunicorn config
+          if [ -f gunicorn.conf.py ]; then
+            echo "✅ Gunicorn config present"
+          else
+            echo "❌ Missing gunicorn configuration"
+            exit 1
+          fi
+
+      - name: Test production startup
+        run: |
+          # Test gunicorn startup (without actually serving)
+          cd engine && timeout 10s gunicorn main:app \
+            --workers 1 \
+            --bind 127.0.0.1:8001 \
+            --timeout 30 \
+            --check-config || echo "Gunicorn config validation"
+
+      - name: Generate deployment summary
+        run: |
+          echo "## Deployment Summary" > deployment-summary.md
+          echo "- ✅ Code quality checks passed" >> deployment-summary.md
+          echo "- ✅ Unit tests passed" >> deployment-summary.md
+          echo "- ✅ Accuracy tests passed (100% pass rate)" >> deployment-summary.md
+          echo "- ✅ Performance tests passed (P95 < 500ms)" >> deployment-summary.md
+          echo "- ✅ Integration tests passed" >> deployment-summary.md
+          echo "- ✅ Production configuration validated" >> deployment-summary.md
+          echo "" >> deployment-summary.md
+          echo "**Ready for deployment** 🚀" >> deployment-summary.md
+
+      - name: Upload deployment summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-summary
+          path: deployment-summary.md

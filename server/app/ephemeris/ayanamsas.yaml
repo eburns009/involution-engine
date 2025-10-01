@@ -1,0 +1,23 @@
+lahiri:
+  type: formula
+  formula: lahiri
+
+fagan_bradley_dynamic:
+  type: formula
+  formula: fagan_bradley_dynamic
+
+fagan_bradley_fixed:
+  type: fixed
+  value_deg: 24.2166666667
+
+krishnamurti:
+  type: formula
+  formula: krishnamurti
+
+raman:
+  type: formula
+  formula: raman
+
+yukteshwar:
+  type: formula
+  formula: yukteshwar

@@ -1,0 +1,626 @@
+{
+  "report_metadata": {
+    "timestamp": "2025-09-27T02:04:01.822829",
+    "analyzer_version": "1.0.0",
+    "baseline_data_source": "baseline_ephemeris_study.json"
+  },
+  "tropical_sidereal_analysis": {
+    "total_charts_analyzed": 4,
+    "ayanamsa_consistency_rate": 1.0,
+    "average_ayanamsa_error_arcmin": 2.142857251641317e-06,
+    "maximum_ayanamsa_error_arcmin": 8.571428153913985e-06,
+    "chart_differences": [
+      {
+        "chart_id": 1,
+        "ayanamsa": 24.084666,
+        "planet_differences": {
+          "Sun": {
+            "tropical": 295.058545,
+            "sidereal": 270.973879,
+            "difference": 24.08466599999997,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.08466599999997,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Moon": {
+            "tropical": 293.674803,
+            "sidereal": 269.590137,
+            "difference": 24.08466599999997,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.08466599999997,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mercury": {
+            "tropical": 283.536633,
+            "sidereal": 259.451967,
+            "difference": 24.08466599999997,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.08466599999997,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Venus": {
+            "tropical": 341.240154,
+            "sidereal": 317.155488,
+            "difference": 24.084666000000027,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.084666000000027,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mars": {
+            "tropical": 342.008692,
+            "sidereal": 317.924026,
+            "difference": 24.08466599999997,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.08466599999997,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Jupiter": {
+            "tropical": 41.15126,
+            "sidereal": 17.066594,
+            "difference": 24.084666000000002,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.084666000000002,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Saturn": {
+            "tropical": 206.920883,
+            "sidereal": 182.836217,
+            "difference": 24.084666,
+            "expected_ayanamsa": 24.084666,
+            "actual_difference": 24.084666,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          }
+        }
+      },
+      {
+        "chart_id": 2,
+        "ayanamsa": 24.161672,
+        "planet_differences": {
+          "Sun": {
+            "tropical": 119.905535,
+            "sidereal": 95.743863,
+            "difference": 24.161671999999996,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.161671999999996,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Moon": {
+            "tropical": 205.222312,
+            "sidereal": 181.06064,
+            "difference": 24.16167199999998,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.16167199999998,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mercury": {
+            "tropical": 146.705729,
+            "sidereal": 122.544057,
+            "difference": 24.161671999999996,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.161671999999996,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Venus": {
+            "tropical": 91.25043,
+            "sidereal": 67.088758,
+            "difference": 24.161671999999996,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.161671999999996,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mars": {
+            "tropical": 31.244941,
+            "sidereal": 7.083269,
+            "difference": 24.161672000000003,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.161672000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Jupiter": {
+            "tropical": 203.434789,
+            "sidereal": 179.273116,
+            "difference": 24.161673000000008,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.161673000000008,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Saturn": {
+            "tropical": 259.875528,
+            "sidereal": 235.713856,
+            "difference": 24.16167199999998,
+            "expected_ayanamsa": 24.161672,
+            "actual_difference": 24.16167199999998,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          }
+        }
+      },
+      {
+        "chart_id": 3,
+        "ayanamsa": 24.068093,
+        "planet_differences": {
+          "Sun": {
+            "tropical": 225.662142,
+            "sidereal": 201.594049,
+            "difference": 24.068092999999976,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068092999999976,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Moon": {
+            "tropical": 348.070873,
+            "sidereal": 324.00278,
+            "difference": 24.068093000000033,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068093000000033,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mercury": {
+            "tropical": 241.001072,
+            "sidereal": 216.932979,
+            "difference": 24.068093000000005,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068093000000005,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Venus": {
+            "tropical": 179.131967,
+            "sidereal": 155.063874,
+            "difference": 24.068093000000005,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068093000000005,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mars": {
+            "tropical": 171.049962,
+            "sidereal": 146.981869,
+            "difference": 24.068093000000005,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068093000000005,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Jupiter": {
+            "tropical": 5.019433,
+            "sidereal": 340.95134,
+            "difference": 24.068092999999976,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068092999999976,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Saturn": {
+            "tropical": 190.268733,
+            "sidereal": 166.20064,
+            "difference": 24.068093000000005,
+            "expected_ayanamsa": 24.068093,
+            "actual_difference": 24.068093000000005,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          }
+        }
+      },
+      {
+        "chart_id": 4,
+        "ayanamsa": 24.491646,
+        "planet_differences": {
+          "Sun": {
+            "tropical": 351.743922,
+            "sidereal": 327.252276,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Moon": {
+            "tropical": 205.460025,
+            "sidereal": 180.968379,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mercury": {
+            "tropical": 328.347733,
+            "sidereal": 303.856087,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Venus": {
+            "tropical": 307.18191,
+            "sidereal": 282.690264,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Mars": {
+            "tropical": 196.675183,
+            "sidereal": 172.183537,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Jupiter": {
+            "tropical": 219.913693,
+            "sidereal": 195.422047,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          },
+          "Saturn": {
+            "tropical": 200.900332,
+            "sidereal": 176.408686,
+            "difference": 24.491646000000003,
+            "expected_ayanamsa": 24.491646,
+            "actual_difference": 24.491646000000003,
+            "within_1_arcmin": true,
+            "within_5_arcmin": true
+          }
+        }
+      }
+    ],
+    "ayanamsa_consistency": [
+      {
+        "chart_id": 1,
+        "ayanamsa": 24.084666,
+        "avg_planet_difference": 24.084665999999988,
+        "ayanamsa_error": 6.394884621840902e-13,
+        "consistent": "True"
+      },
+      {
+        "chart_id": 2,
+        "ayanamsa": 24.161672,
+        "avg_planet_difference": 24.161672142857135,
+        "ayanamsa_error": 8.571428153913985e-06,
+        "consistent": "True"
+      },
+      {
+        "chart_id": 3,
+        "ayanamsa": 24.068093,
+        "avg_planet_difference": 24.068093,
+        "ayanamsa_error": 0.0,
+        "consistent": "True"
+      },
+      {
+        "chart_id": 4,
+        "ayanamsa": 24.491646,
+        "avg_planet_difference": 24.491646000000003,
+        "ayanamsa_error": 2.1316282072803006e-13,
+        "consistent": "True"
+      }
+    ]
+  },
+  "era_accuracy_analysis": {
+    "1950s": {
+      "charts": [
+        1,
+        2,
+        3
+      ],
+      "success_count": 3,
+      "total_count": 3,
+      "ayanamsa_values": [
+        24.084666,
+        24.161672,
+        24.068093
+      ],
+      "avg_positions_per_chart": 7.0,
+      "success_rate": 1.0,
+      "ayanamsa_range": {
+        "min": 24.068093,
+        "max": 24.161672,
+        "mean": 24.104810333333333,
+        "std": 0.04077256376808051
+      }
+    },
+    "1980s": {
+      "charts": [
+        4,
+        5,
+        6
+      ],
+      "success_count": 1,
+      "total_count": 3,
+      "ayanamsa_values": [
+        24.491646
+      ],
+      "avg_positions_per_chart": 7.0,
+      "success_rate": 0.3333333333333333,
+      "ayanamsa_range": {
+        "min": 24.491646,
+        "max": 24.491646,
+        "mean": 24.491646,
+        "std": 0.0
+      }
+    },
+    "2000s": {
+      "charts": [
+        7,
+        8,
+        9
+      ],
+      "success_count": 0,
+      "total_count": 3,
+      "ayanamsa_values": [],
+      "avg_positions_per_chart": 0,
+      "success_rate": 0.0,
+      "ayanamsa_range": null
+    }
+  },
+  "planetary_accuracy_analysis": {
+    "Sun": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        295.058545,
+        119.905535,
+        225.662142,
+        351.743922
+      ],
+      "sidereal_longitudes": [
+        270.973879,
+        95.743863,
+        201.594049,
+        327.252276
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 119.905535,
+        "max": 351.743922,
+        "span": 231.838387
+      },
+      "sidereal_range": {
+        "min": 95.743863,
+        "max": 327.252276,
+        "span": 231.508413
+      }
+    },
+    "Moon": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        293.674803,
+        205.222312,
+        348.070873,
+        205.460025
+      ],
+      "sidereal_longitudes": [
+        269.590137,
+        181.06064,
+        324.00278,
+        180.968379
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 205.222312,
+        "max": 348.070873,
+        "span": 142.84856100000002
+      },
+      "sidereal_range": {
+        "min": 180.968379,
+        "max": 324.00278,
+        "span": 143.03440099999997
+      }
+    },
+    "Mercury": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        283.536633,
+        146.705729,
+        241.001072,
+        328.347733
+      ],
+      "sidereal_longitudes": [
+        259.451967,
+        122.544057,
+        216.932979,
+        303.856087
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 146.705729,
+        "max": 328.347733,
+        "span": 181.64200400000001
+      },
+      "sidereal_range": {
+        "min": 122.544057,
+        "max": 303.856087,
+        "span": 181.31203
+      }
+    },
+    "Venus": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        341.240154,
+        91.25043,
+        179.131967,
+        307.18191
+      ],
+      "sidereal_longitudes": [
+        317.155488,
+        67.088758,
+        155.063874,
+        282.690264
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 91.25043,
+        "max": 341.240154,
+        "span": 249.98972400000002
+      },
+      "sidereal_range": {
+        "min": 67.088758,
+        "max": 317.155488,
+        "span": 250.06673
+      }
+    },
+    "Mars": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        342.008692,
+        31.244941,
+        171.049962,
+        196.675183
+      ],
+      "sidereal_longitudes": [
+        317.924026,
+        7.083269,
+        146.981869,
+        172.183537
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 31.244941,
+        "max": 342.008692,
+        "span": 310.763751
+      },
+      "sidereal_range": {
+        "min": 7.083269,
+        "max": 317.924026,
+        "span": 310.84075700000005
+      }
+    },
+    "Jupiter": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        41.15126,
+        203.434789,
+        5.019433,
+        219.913693
+      ],
+      "sidereal_longitudes": [
+        17.066594,
+        179.273116,
+        340.95134,
+        195.422047
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 5.019433,
+        "max": 219.913693,
+        "span": 214.89426
+      },
+      "sidereal_range": {
+        "min": 17.066594,
+        "max": 340.95134,
+        "span": 323.884746
+      }
+    },
+    "Saturn": {
+      "total_calculations": 4,
+      "tropical_longitudes": [
+        206.920883,
+        259.875528,
+        190.268733,
+        200.900332
+      ],
+      "sidereal_longitudes": [
+        182.836217,
+        235.713856,
+        166.20064,
+        176.408686
+      ],
+      "position_ranges": {},
+      "ephemeris_consistency": [],
+      "tropical_range": {
+        "min": 190.268733,
+        "max": 259.875528,
+        "span": 69.60679499999998
+      },
+      "sidereal_range": {
+        "min": 166.20064,
+        "max": 235.713856,
+        "span": 69.513216
+      }
+    }
+  },
+  "system_recommendations": {
+    "timestamp": "2025-09-27T02:04:01.823461",
+    "overall_assessment": {
+      "quality_rating": "excellent",
+      "ayanamsa_consistency": "100.0%",
+      "average_ayanamsa_error": "0.0 arcminutes",
+      "charts_analyzed": 4
+    },
+    "testing_recommendations": {
+      "suitable_for_precision_astrology": true,
+      "recommended_zodiac_system": "Both tropical and sidereal supported",
+      "minimum_test_sample_size": 100,
+      "validation_frequency": "Monthly",
+      "confidence_level": "High"
+    },
+    "accuracy_thresholds": {
+      "planetary_position_tolerance": "\u00b130 arcseconds",
+      "birth_time_tolerance": "\u00b12 minutes",
+      "location_tolerance": "\u00b10.1 degrees",
+      "ayanamsa_tolerance": "\u00b10.0 arcminutes"
+    },
+    "reliability_zones": {
+      "highly_reliable": [
+        "1950s (100.0%)"
+      ],
+      "unreliable": [
+        "1980s (33.3%)",
+        "2000s (0.0%)"
+      ],
+      "recommended_date_range": "1550-2650 CE (DE440 coverage)",
+      "optimal_testing_range": "1900-2100 CE"
+    },
+    "known_limitations": [
+      "Limited accuracy for: 1980s (33.3%), 2000s (0.0%)",
+      "Limited test coverage - expand validation dataset"
+    ],
+    "best_practices": {
+      "input_validation": [
+        "Validate birth times to nearest minute",
+        "Use decimal degrees for coordinates",
+        "Specify timezone explicitly",
+        "Verify location coordinates independently"
+      ],
+      "calculation_verification": [
+        "Cross-check critical charts with external sources",
+        "Monitor ayanamsa consistency across calculations",
+        "Validate position consistency between zodiac systems",
+        "Test edge cases (near pole, ancient dates)"
+      ],
+      "system_monitoring": [
+        "Log calculation times for performance monitoring",
+        "Track error rates by era and planet",
+        "Maintain baseline accuracy test suite",
+        "Alert on significant accuracy degradation"
+      ]
+    }
+  }
+}

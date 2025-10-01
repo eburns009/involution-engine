@@ -1,0 +1,109 @@
+version: "3.9"
+
+services:
+  engine-stable:
+    image: involution-engine:de440-1900
+    container_name: engine-stable
+    environment:
+      - ENV=prod
+      - REDIS_URL=redis://redis:6379/0
+      - TIME_RESOLVER_URL=http://time-resolver:9000
+    volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
+      - kernels:/opt/kernels:ro
+    ports:
+      - "8081:8080"  # Direct access for debugging
+    networks:
+      - involution
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  engine-canary:
+    image: involution-engine:de440-1900-canary
+    container_name: engine-canary
+    environment:
+      - ENV=prod
+      - REDIS_URL=redis://redis:6379/0
+      - TIME_RESOLVER_URL=http://time-resolver:9000
+    volumes:
+      - ./server/config.yaml:/app/config.yaml:ro
+      - kernels:/opt/kernels:ro
+    ports:
+      - "8082:8080"  # Direct access for debugging
+    networks:
+      - involution
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-canary
+    volumes:
+      - ./ops/nginx/canary.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    networks:
+      - involution
+    depends_on:
+      - engine-stable
+      - engine-canary
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-canary
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - involution
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  time-resolver:
+    image: involution-time-resolver:latest
+    container_name: time-resolver-canary
+    ports:
+      - "9000:9000"
+    networks:
+      - involution
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  kernels:
+    external: true
+  redis_data:
+
+networks:
+  involution:
+    driver: bridge

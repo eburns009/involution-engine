@@ -1,0 +1,13 @@
+name,local_datetime,place_name,lat,lon,systems,ayanamsha_id,ayanamsha_value
+# Template for chart input data
+# name: Unique identifier for the test case
+# local_datetime: Local datetime in ISO format (YYYY-MM-DDTHH:mm:ss)
+# place_name: Human-readable place name (optional)
+# lat: Latitude in degrees (-90 to 90)
+# lon: Longitude in degrees (-180 to 180)
+# systems: Comma-separated list (tropical,sidereal_fb,sidereal_lahiri)
+# ayanamsha_id: FAGAN_BRADLEY_FIXED, LAHIRI, etc.
+# ayanamsha_value: Expected ayanamsa value (HH:mm:ss or decimal degrees)
+#
+# Example:
+# fort_knox_test,1962-07-02T23:33:00,Fort Knox KY,37.840347,-85.949127,"tropical,sidereal_fb",FAGAN_BRADLEY_FIXED,24:13:00
