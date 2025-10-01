@@ -1,0 +1,108 @@
+{
+  "description": "Example planetary positions request for Fort Knox 1962",
+  "request": {
+    "method": "POST",
+    "url": "/v1/positions",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "when": {
+        "local_datetime": "1962-07-02T23:33:00",
+        "place": {
+          "name": "Fort Knox, Kentucky",
+          "lat": 37.840347,
+          "lon": -85.949127
+        }
+      },
+      "system": "tropical",
+      "bodies": [
+        "Sun",
+        "Moon",
+        "Mercury",
+        "Venus",
+        "Mars",
+        "Jupiter",
+        "Saturn",
+        "Uranus",
+        "Neptune",
+        "Pluto",
+        "TrueNode"
+      ],
+      "parity_profile": "strict_history"
+    }
+  },
+  "expected_response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "ETag": "\"xyz789abc123\"",
+      "Cache-Control": "public, max-age=3600"
+    },
+    "body": {
+      "utc": "1962-07-03T04:33:00Z",
+      "provenance": {
+        "tzdb_version": "2025.1",
+        "patch_version": "patches-e868200c",
+        "parity_profile": "strict_history",
+        "kernels_bundle": "involution-v1.0",
+        "reference_frame": "ecliptic_of_date",
+        "epoch": "of_date",
+        "ephemeris": "DE440"
+      },
+      "bodies": [
+        {
+          "name": "Sun",
+          "lon_deg": 100.738889
+        },
+        {
+          "name": "Moon",
+          "lon_deg": 326.452778
+        },
+        {
+          "name": "Mercury",
+          "lon_deg": 78.234567
+        },
+        {
+          "name": "Venus",
+          "lon_deg": 147.891234
+        },
+        {
+          "name": "Mars",
+          "lon_deg": 23.567890
+        },
+        {
+          "name": "Jupiter",
+          "lon_deg": 65.123456
+        },
+        {
+          "name": "Saturn",
+          "lon_deg": 305.678901
+        },
+        {
+          "name": "Uranus",
+          "lon_deg": 132.345678
+        },
+        {
+          "name": "Neptune",
+          "lon_deg": 213.456789
+        },
+        {
+          "name": "Pluto",
+          "lon_deg": 168.789012
+        },
+        {
+          "name": "TrueNode",
+          "lon_deg": 236.567891
+        }
+      ]
+    }
+  },
+  "notes": [
+    "This example demonstrates tropical zodiac calculation for mid-20th century",
+    "All longitude values are in decimal degrees (0-360)",
+    "The system='tropical' means no ayanāṃśa is applied",
+    "Bodies array includes classical planets plus modern planets and True Node",
+    "Response includes full provenance for reproducibility"
+  ]
+}

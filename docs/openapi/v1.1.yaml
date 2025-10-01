@@ -1,0 +1,524 @@
+openapi: 3.0.3
+info:
+  title: Involution Engine API
+  version: 1.1.0
+  description: |
+    Comprehensive astronomical computing service providing high-precision planetary positions,
+    time resolution, and geocoding capabilities.
+
+    **Deprecation Notice**: Legacy fields from v1.0 may be removed in future versions.
+    Please migrate to the standardized schema documented below.
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /v1/time/resolve:
+    post:
+      summary: Resolve local datetime to UTC
+      description: |
+        Convert local datetime with place information to UTC, handling timezone rules
+        and historical data based on the specified parity profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [local_datetime, place]
+              properties:
+                local_datetime:
+                  type: string
+                  description: ISO-ish datetime string (server will parse flexibly)
+                  example: "1962-07-02T23:33:00"
+                place:
+                  type: object
+                  required: [lat, lon]
+                  properties:
+                    name:
+                      type: string
+                      description: Human-readable place name
+                      example: "Fort Knox, Kentucky"
+                    lat:
+                      type: number
+                      minimum: -90
+                      maximum: 90
+                      description: Latitude in decimal degrees
+                      example: 37.840347
+                    lon:
+                      type: number
+                      minimum: -180
+                      maximum: 180
+                      description: Longitude in decimal degrees
+                      example: -85.949127
+                parity_profile:
+                  type: string
+                  enum: [strict_history, best_effort, modern_only]
+                  default: strict_history
+                  description: |
+                    - strict_history: Fail if historical timezone data unavailable
+                    - best_effort: Use approximations for missing historical data
+                    - modern_only: Only process dates with reliable timezone data
+            examples:
+              fort_knox_1962:
+                summary: Fort Knox 1962 example
+                value:
+                  local_datetime: "1962-07-02T23:33:00"
+                  place:
+                    name: "Fort Knox, Kentucky"
+                    lat: 37.840347
+                    lon: -85.949127
+                  parity_profile: "strict_history"
+      responses:
+        '200':
+          description: Successfully resolved to UTC
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Entity tag for caching
+            Cache-Control:
+              schema:
+                type: string
+              description: Cache directives
+              example: "public, max-age=86400"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [utc, provenance]
+                properties:
+                  utc:
+                    type: string
+                    format: date-time
+                    description: Resolved UTC datetime
+                    example: "1962-07-03T04:33:00Z"
+                  provenance:
+                    type: object
+                    required: [tzdb_version, patch_version]
+                    properties:
+                      tzdb_version:
+                        type: string
+                        description: Timezone database version used
+                        example: "2025.1"
+                      patch_version:
+                        type: string
+                        description: Internal patch version
+                        example: "patches-e868200c"
+                      parity_profile:
+                        type: string
+                        description: Parity profile applied
+                        example: "strict_history"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /v1/positions:
+    post:
+      summary: Compute planetary positions
+      description: |
+        Calculate high-precision planetary positions for specified celestial bodies
+        at a given time, using tropical or sidereal zodiac systems.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [when, system, bodies]
+              properties:
+                when:
+                  type: object
+                  oneOf:
+                    - required: [utc]
+                    - required: [local_datetime, place]
+                  properties:
+                    utc:
+                      type: string
+                      format: date-time
+                      description: UTC datetime
+                      example: "1962-07-03T04:33:00Z"
+                    local_datetime:
+                      type: string
+                      description: ISO-ish datetime string (server will parse)
+                      example: "1962-07-02T23:33:00"
+                    place:
+                      type: object
+                      required: [lat, lon]
+                      properties:
+                        name:
+                          type: string
+                          description: Human-readable place name
+                          example: "Fort Knox, Kentucky"
+                        lat:
+                          type: number
+                          minimum: -90
+                          maximum: 90
+                          description: Latitude in decimal degrees
+                          example: 37.840347
+                        lon:
+                          type: number
+                          minimum: -180
+                          maximum: 180
+                          description: Longitude in decimal degrees
+                          example: -85.949127
+                system:
+                  type: string
+                  enum: [tropical, sidereal]
+                  description: Zodiac system to use
+                  example: "tropical"
+                ayanamsha:
+                  type: object
+                  description: Ayanāṃśa configuration (required for sidereal system)
+                  properties:
+                    id:
+                      type: string
+                      enum: [FAGAN_BRADLEY_DYNAMIC, LAHIRI, RAMAN, KRISHNAMURTI]
+                      description: Ayanāṃśa identifier
+                      example: "FAGAN_BRADLEY_DYNAMIC"
+                frame:
+                  type: object
+                  description: Reference frame configuration
+                  properties:
+                    type:
+                      type: string
+                      enum: [ecliptic_of_date, equatorial]
+                      default: ecliptic_of_date
+                      description: Coordinate system type
+                epoch:
+                  type: string
+                  enum: [of_date, J2000]
+                  default: of_date
+                  description: Reference epoch
+                bodies:
+                  type: array
+                  items:
+                    type: string
+                    enum: [Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, TrueNode, MeanNode]
+                  minItems: 1
+                  description: Celestial bodies to compute
+                  example: ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
+                parity_profile:
+                  type: string
+                  enum: [strict_history, best_effort, modern_only]
+                  default: strict_history
+                  description: Time resolution parity profile
+            examples:
+              fort_knox_tropical:
+                summary: Fort Knox 1962 - Tropical
+                value:
+                  when:
+                    local_datetime: "1962-07-02T23:33:00"
+                    place:
+                      name: "Fort Knox, Kentucky"
+                      lat: 37.840347
+                      lon: -85.949127
+                  system: "tropical"
+                  bodies: ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
+                  parity_profile: "strict_history"
+              fort_knox_sidereal:
+                summary: Fort Knox 1962 - Sidereal
+                value:
+                  when:
+                    utc: "1962-07-03T04:33:00Z"
+                  system: "sidereal"
+                  ayanamsha:
+                    id: "FAGAN_BRADLEY_DYNAMIC"
+                  bodies: ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
+      responses:
+        '200':
+          description: Planetary positions computed successfully
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Entity tag for caching
+            Cache-Control:
+              schema:
+                type: string
+              description: Cache directives
+              example: "public, max-age=3600"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [utc, provenance, bodies]
+                properties:
+                  utc:
+                    type: string
+                    format: date-time
+                    description: Actual UTC time used for computation
+                    example: "1962-07-03T04:33:00Z"
+                  provenance:
+                    type: object
+                    required: [tzdb_version, patch_version, kernels_bundle, ephemeris]
+                    properties:
+                      tzdb_version:
+                        type: string
+                        description: Timezone database version
+                        example: "2025.1"
+                      patch_version:
+                        type: string
+                        description: Internal patch version
+                        example: "patches-e868200c"
+                      parity_profile:
+                        type: string
+                        description: Parity profile used
+                        example: "strict_history"
+                      ayanamsha:
+                        type: object
+                        description: Ayanāṃśa details (for sidereal calculations)
+                        properties:
+                          id:
+                            type: string
+                            example: "FAGAN_BRADLEY_DYNAMIC"
+                          value_deg:
+                            type: number
+                            description: Ayanāṃśa value in degrees
+                            example: 24.216667
+                      kernels_bundle:
+                        type: string
+                        description: SPICE kernels bundle version
+                        example: "involution-v1.0"
+                      reference_frame:
+                        type: string
+                        description: Reference frame used
+                        example: "ecliptic_of_date"
+                      epoch:
+                        type: string
+                        description: Reference epoch
+                        example: "of_date"
+                      ephemeris:
+                        type: string
+                        enum: [DE440, DE441]
+                        description: JPL ephemeris used
+                        example: "DE440"
+                  bodies:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, lon_deg]
+                      properties:
+                        name:
+                          type: string
+                          description: Celestial body name
+                          example: "Sun"
+                        lon_deg:
+                          type: number
+                          description: Longitude in degrees
+                          example: 100.738889
+                        lat_deg:
+                          type: number
+                          description: Latitude in degrees (typically near 0 for most bodies)
+                          example: 0.0
+                        ra_hours:
+                          type: number
+                          description: Right ascension in hours (if equatorial frame)
+                          example: 6.716667
+                        dec_deg:
+                          type: number
+                          description: Declination in degrees (if equatorial frame)
+                          example: 23.45
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /v1/geocode/search:
+    get:
+      summary: Search for geographic locations
+      description: |
+        Thin proxy to geocoding service for location search.
+        Returns standardized place information with coordinates.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query for place name
+          example: "Fort Knox, Kentucky"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+          description: Maximum number of results
+      responses:
+        '200':
+          description: Location search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, lat, lon]
+                      properties:
+                        name:
+                          type: string
+                          description: Formatted place name
+                          example: "Fort Knox, Kentucky, United States"
+                        lat:
+                          type: number
+                          description: Latitude in decimal degrees
+                          example: 37.840347
+                        lon:
+                          type: number
+                          description: Longitude in decimal degrees
+                          example: -85.949127
+                        country:
+                          type: string
+                          description: Country name
+                          example: "United States"
+                        admin1:
+                          type: string
+                          description: First-level administrative division
+                          example: "Kentucky"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /healthz:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status and basic system information
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, timestamp]
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded]
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Health check timestamp
+                  version:
+                    type: string
+                    description: Service version
+                    example: "1.1.0"
+                  kernels_status:
+                    type: string
+                    enum: [loaded, loading, error]
+                    description: SPICE kernels loading status
+                    example: "loaded"
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, timestamp]
+                properties:
+                  status:
+                    type: string
+                    enum: [unhealthy, starting]
+                    example: "starting"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  error:
+                    type: string
+                    description: Error description if applicable
+
+components:
+  responses:
+    BadRequest:
+      description: Client error - invalid request format or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalid_input:
+              summary: Invalid input structure
+              value:
+                code: "INPUT.INVALID"
+                title: "Invalid input"
+                detail: "\"when\" must include either \"utc\" or (\"local_datetime\" + \"place\")."
+                tip: "See OpenAPI schema for examples."
+            ephemeris_range:
+              summary: Date outside ephemeris range
+              value:
+                code: "RANGE.EPHEMERIS_OUTSIDE"
+                title: "Date outside ephemeris range"
+                detail: "Supported range 1550–2650 (DE440)."
+                tip: "Use a supported date or change kernels."
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: string
+          description: Seconds to wait before retrying
+          example: "60"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "RATE.LIMITED"
+            title: "Too many requests"
+            detail: "Per-IP rate limit exceeded."
+            tip: "Retry after header-specified time."
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            kernels_unavailable:
+              summary: Kernels not available
+              value:
+                code: "KERNELS.NOT_AVAILABLE"
+                title: "Ephemeris kernels not available"
+                detail: "Kernels bundle not loaded or checksum mismatch."
+                tip: "Service warming; retry shortly."
+
+  schemas:
+    Error:
+      type: object
+      required: [code, title]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          pattern: '^[A-Z_]+\.[A-Z_]+$'
+          example: "RANGE.EPHEMERIS_OUTSIDE"
+        title:
+          type: string
+          description: Human-readable error title
+          example: "Date outside ephemeris range"
+        detail:
+          type: string
+          description: Detailed error explanation
+          example: "Supported range 1550–2650 (DE440)."
+        tip:
+          type: string
+          description: Actionable guidance for resolving the error
+          example: "Use a supported date or change kernels."
