@@ -1,0 +1,39 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY app/ /app/app/
+COPY config.yaml /app/config.yaml
+
+# Copy DE440-modern kernel bundle (modern era optimized)
+COPY kernels/de440-modern/ /opt/kernels/de440-modern/
+COPY kernels/checksums.json /opt/kernels/checksums.json
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    pydantic[dotenv]==2.5.0 \
+    pyyaml==6.0.1 \
+    httpx==0.25.2 \
+    spiceypy==6.0.0
+
+# Update config for this bundle
+RUN sed -i 's/bundle: "de440-1900"/bundle: "de440-modern"/' /app/config.yaml
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8080/healthz', timeout=5)"
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
