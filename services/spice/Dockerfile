@@ -31,6 +31,11 @@ COPY services/spice/tests/ ./tests/
 # This ensures kernels are baked into the image for Render's ephemeral disk
 COPY kernels/ ./kernels/
 
+# Debug: List what was copied to verify kernels are present
+RUN echo "=== Kernel files in image ===" && \
+    ls -laR /app/kernels/ && \
+    echo "=== End kernel listing ==="
+
 # Security: Create non-root user and cache directory
 RUN adduser --disabled-password --gecos "" appuser \
     && mkdir -p /app /tmp/cache \
