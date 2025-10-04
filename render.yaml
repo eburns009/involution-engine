@@ -32,13 +32,6 @@ services:
     autoDeploy: true
     buildCommand: npm ci && npm run build
     startCommand: npm run start
-    buildFilter:
-      paths:
-        - app/**
-        - components/**
-        - lib/**
-        - package.json
-        - next.config.js
     envVars:
       - key: NEXT_PUBLIC_ENGINE_BASE
         value: https://spice-api-d5qk.onrender.com
