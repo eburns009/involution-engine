@@ -16,11 +16,13 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
-from typing import Dict, Any, Callable, AsyncGenerator, Literal, List
+from typing import Dict, Any, Callable, AsyncGenerator, Literal, List, Optional
 from pathlib import Path
 import math
 import io
 import csv
+from timezonefinder import TimezoneFinder
+import pytz
 
 # Contract Constants
 ECL_FRAME = "ECLIPDATE"
@@ -1133,6 +1135,113 @@ async def calculate_csv(request: Request, chart_req: ChartRequest):
     except Exception as e:
         status_code, detail = map_error(e)
         raise HTTPException(status_code=status_code, detail=detail)
+
+# Time Resolution Models and Endpoint
+class TimeResolveRequest(BaseModel):
+    local_datetime: str = Field(..., description="Local datetime in ISO format (YYYY-MM-DDTHH:MM:SS)")
+    latitude: float = Field(..., ge=-90, le=90, description="Latitude in degrees")
+    longitude: float = Field(..., ge=-180, le=180, description="Longitude in degrees")
+    timezone_override: Optional[str] = Field(None, description="Manual timezone override (IANA timezone name, e.g. 'America/Chicago')")
+
+class TimeResolveResponse(BaseModel):
+    utc_time: str = Field(..., description="UTC time in ISO Z format")
+    timezone: str = Field(..., description="IANA timezone identifier")
+    offset_hours: float = Field(..., description="UTC offset in hours at the given datetime")
+    is_dst: bool = Field(..., description="Whether daylight saving time was active")
+
+# Global timezone finder (initialize once)
+tf = TimezoneFinder()
+
+@limiter.limit("60/minute")
+@app.post("/v1/time/resolve", response_model=TimeResolveResponse)
+async def resolve_time(request: Request, req: TimeResolveRequest) -> TimeResolveResponse:
+    """
+    Resolve local datetime to UTC using geographical coordinates.
+
+    This endpoint handles:
+    - Historical timezone rules
+    - Daylight Saving Time (DST) transitions
+    - Timezone boundary changes over time
+
+    Uses IANA timezone database via pytz for accurate historical conversions.
+    """
+    try:
+        # 1. Find timezone from coordinates (or use override)
+        if req.timezone_override:
+            # Validate the override timezone
+            try:
+                pytz.timezone(req.timezone_override)
+                tz_name = req.timezone_override
+            except pytz.exceptions.UnknownTimeZoneError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid timezone: {req.timezone_override}. Must be a valid IANA timezone name."
+                )
+        else:
+            tz_name = tf.timezone_at(lat=req.latitude, lng=req.longitude)
+
+            if not tz_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Could not determine timezone for coordinates ({req.latitude}, {req.longitude}). Location may be in ocean or invalid. Consider using timezone_override."
+                )
+
+        # 2. Parse local datetime (expect ISO format without timezone)
+        # Handle both with and without seconds
+        try:
+            if len(req.local_datetime) == 16:  # YYYY-MM-DDTHH:MM
+                local_dt = datetime.strptime(req.local_datetime, "%Y-%m-%dT%H:%M")
+            elif len(req.local_datetime) == 19:  # YYYY-MM-DDTHH:MM:SS
+                local_dt = datetime.strptime(req.local_datetime, "%Y-%m-%dT%H:%M:%S")
+            else:
+                # Try to parse with fromisoformat (more flexible)
+                local_dt_str = req.local_datetime.replace('Z', '').replace('+00:00', '')
+                if '+' in local_dt_str or local_dt_str.count('-') > 2:
+                    raise ValueError("Datetime should not include timezone info")
+                local_dt = datetime.fromisoformat(local_dt_str)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid datetime format. Expected ISO format without timezone (YYYY-MM-DDTHH:MM:SS), got: {req.local_datetime}"
+            )
+
+        # 3. Get timezone object and localize
+        tz = pytz.timezone(tz_name)
+
+        try:
+            # Use is_dst=None to raise exception on ambiguous times
+            localized_dt = tz.localize(local_dt, is_dst=None)
+            is_dst = bool(localized_dt.dst())
+        except pytz.exceptions.AmbiguousTimeError:
+            # Time occurred twice (DST "fall back") - use standard time
+            localized_dt = tz.localize(local_dt, is_dst=False)
+            is_dst = False
+        except pytz.exceptions.NonExistentTimeError:
+            # Time didn't exist (DST "spring forward") - use the next valid time
+            localized_dt = tz.localize(local_dt, is_dst=True)
+            is_dst = True
+
+        # 4. Convert to UTC
+        utc_dt = localized_dt.astimezone(pytz.UTC)
+
+        # 5. Calculate offset
+        offset_seconds = localized_dt.utcoffset().total_seconds() if localized_dt.utcoffset() else 0
+        offset_hours = offset_seconds / 3600
+
+        return TimeResolveResponse(
+            utc_time=utc_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            timezone=tz_name,
+            offset_hours=round(offset_hours, 2),
+            is_dst=is_dst
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Time resolution failed: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import os

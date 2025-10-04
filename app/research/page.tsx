@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { CalculateResponse } from '@/lib/astroTypes';
 import { calc } from '@/lib/calc';
-import { localInputToUtcZ, utcZToLocalInput } from '@/lib/time';
+import { resolveLocalToUtc, utcZToLocalInput } from '@/lib/time';
 import ResearchTableView from '@/components/ResearchTableView';
 import ChartWheelView from '@/components/ChartWheelView';
 import Link from 'next/link';
@@ -53,21 +53,42 @@ export default function ResearchUI() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [inputPanelExpanded, setInputPanelExpanded] = useState(true);
+  const [timezoneInfo, setTimezoneInfo] = useState<{
+    timezone: string;
+    offset_hours: number;
+    is_dst: boolean;
+  } | null>(null);
 
   const onSubmit = async (data: FormT) => {
     setErr(null);
     setRes(null);
     setLoading(true);
     try {
+      // Step 1: Resolve local time to UTC using coordinates
+      const timeResolution = await resolveLocalToUtc(
+        data.birth_time_local,
+        data.latitude,
+        data.longitude
+      );
+
+      // Step 2: Calculate chart with resolved UTC time
       const payload = {
-        birth_time: localInputToUtcZ(data.birth_time_local),
+        birth_time: timeResolution.utc_time,
         latitude: data.latitude,
         longitude: data.longitude,
         elevation: data.elevation,
         ayanamsa: data.ayanamsa,
+        zodiac: 'sidereal' as const,
       };
       const result = await calc(payload);
       setRes(result);
+
+      // Save timezone info for display
+      setTimezoneInfo({
+        timezone: timeResolution.timezone,
+        offset_hours: timeResolution.offset_hours,
+        is_dst: timeResolution.is_dst
+      });
     } catch (e: any) {
       setErr(e?.message ?? 'Request failed');
     } finally {
@@ -77,11 +98,11 @@ export default function ResearchUI() {
 
   const fortKnoxExample = () => {
     reset({
-      birth_time_local: '1962-07-03T00:33:00',
+      birth_time_local: '1962-07-02T23:33:00',
       latitude: 37.840347,
       longitude: -85.949127,
       elevation: 0,
-      ayanamsa: 'lahiri',
+      ayanamsa: 'fagan_bradley',
     });
   };
 
@@ -262,6 +283,17 @@ export default function ResearchUI() {
             </form>
           )}
         </div>
+
+        {/* Timezone Info Display */}
+        {timezoneInfo && !err && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <p className="font-medium text-blue-900">📍 Timezone Resolved</p>
+            <p className="mt-1">
+              {timezoneInfo.timezone} (UTC{timezoneInfo.offset_hours >= 0 ? '+' : ''}{timezoneInfo.offset_hours})
+              {timezoneInfo.is_dst && ' • Daylight Saving Time active'}
+            </p>
+          </div>
+        )}
 
         {/* Error Display */}
         {err && (

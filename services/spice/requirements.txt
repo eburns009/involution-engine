@@ -10,3 +10,5 @@ pytest==8.4.2
 httpx==0.28.1
 requests>=2.32.4
 types-requests==2.32.4.20250913
+timezonefinder==6.5.2
+pytz==2024.2
