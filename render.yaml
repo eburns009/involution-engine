@@ -1,10 +1,39 @@
 services:
+  # FastAPI SPICE calculation service
   - type: web
-    name: involution-spice
+    name: spice-api
     env: docker
+    dockerfilePath: ./services/spice/Dockerfile
+    dockerContext: .
     plan: starter
     autoDeploy: true
     healthCheckPath: /health
+    buildFilter:
+      paths:
+        - services/spice/**
+        - kernels/**
     envVars:
+      - key: ENGINE_KERNEL_BUNDLE
+        value: de440-modern
+      - key: LOG_LEVEL
+        value: INFO
+      - key: WORKERS
+        value: 2
       - key: ALLOWED_ORIGINS
-        value: https://your-ui.example
+        value: https://research-ui.onrender.com,http://localhost:3000
+      - key: DISABLE_RATE_LIMIT
+        value: 0
+
+  # Next.js research UI
+  - type: web
+    name: research-ui
+    env: node
+    plan: starter
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_ENGINE_BASE
+        value: https://spice-api.onrender.com
+      - key: NODE_ENV
+        value: production

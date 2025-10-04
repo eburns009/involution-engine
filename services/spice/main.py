@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -18,6 +19,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Callable, AsyncGenerator, Literal, List
 from pathlib import Path
 import math
+import io
+import csv
 
 # Contract Constants
 ECL_FRAME = "ECLIPDATE"
@@ -29,6 +32,10 @@ SERVICE_VERSION = "2.0.0"
 
 # Zodiac support
 Zodiac = Literal["tropical", "sidereal"]
+
+# Zodiac signs for UI enrichment
+SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+         "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -190,7 +197,7 @@ if os.getenv("DISABLE_RATE_LIMIT", "0") == "1":
     limiter = _NoopLimiter()  # type: ignore[assignment]
     app.state.limiter = limiter
 
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://research-ui.onrender.com").split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -199,6 +206,18 @@ app.add_middleware(
     allow_headers=["content-type", "authorization"],
     allow_credentials=True,
 )
+
+# Available celestial bodies for calculation
+AVAILABLE_BODIES = {
+    "Sun": "SUN",
+    "Moon": "MOON",
+    "Mercury": "MERCURY BARYCENTER",
+    "Venus": "VENUS BARYCENTER",
+    "Mars": "MARS BARYCENTER",
+    "Jupiter": "JUPITER BARYCENTER",
+    "Saturn": "SATURN BARYCENTER",
+    # TODO: Add Uranus, Neptune, Pluto, True Node, Mean Node, ASC, MC
+}
 
 class ChartRequest(BaseModel):
     birth_time: datetime = Field(
@@ -212,6 +231,8 @@ class ChartRequest(BaseModel):
     zodiac: Zodiac = "sidereal"
     # Ayanamsa is only used when zodiac == "sidereal"
     ayanamsa: Literal["lahiri", "fagan_bradley"] = "lahiri"
+    # NEW: selectable bodies (defaults to all 7 classical planets)
+    bodies: List[str] = Field(default_factory=lambda: list(AVAILABLE_BODIES.keys()))
 
     @field_validator("birth_time")
     @classmethod
@@ -221,10 +242,28 @@ class ChartRequest(BaseModel):
             raise ValueError("birth_time must include a timezone (Z or ±HH:MM)")
         return v.astimezone(timezone.utc)
 
+    @field_validator("bodies")
+    @classmethod
+    def validate_bodies(cls, v: List[str]) -> List[str]:
+        invalid = set(v) - set(AVAILABLE_BODIES.keys())
+        if invalid:
+            raise ValueError(f"Invalid bodies requested: {sorted(invalid)}")
+        if not v:
+            raise ValueError("At least one body is required")
+        return v
+
 class PlanetPosition(BaseModel):
     longitude: float
     latitude: float
     distance: float
+    # UI-ready fields
+    sign: str | None = None  # e.g. "Aries", "Taurus"
+    degree: float | None = None  # 0-29.999... within sign
+    degrees: int | None = None  # DMS degrees component
+    minutes: int | None = None  # DMS minutes component
+    seconds: float | None = None  # DMS seconds component
+    speed: float | None = None  # degrees per day (longitude)
+    is_retrograde: bool | None = None  # True if speed < 0
 
 class ApiMeta(BaseModel):
     service_version: str
@@ -292,23 +331,14 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
         # Convert to SPICE ET from ISO Z (always UTC now)
         et = spice.str2et(chart.birth_time.isoformat().replace("+00:00", "Z"))
 
-        bodies = {
-            "Sun": "SUN",                    # 10
-            "Moon": "MOON",                  # 301
-            "Mercury": "MERCURY BARYCENTER", # 1
-            "Venus": "VENUS BARYCENTER",     # 2
-            "Mars": "MARS BARYCENTER",       # 4
-            "Jupiter": "JUPITER BARYCENTER", # 5
-            "Saturn": "SATURN BARYCENTER",   # 6
-        }
-
         results = {}
 
         # Calculate ayanamsa once if needed
         ayanamsa_deg = calculate_ayanamsa(chart.ayanamsa, et) if chart.zodiac == "sidereal" else None
 
-        for name, body_id in bodies.items():
+        for name in chart.bodies:
             body_start_time = time.time()
+            body_id = AVAILABLE_BODIES[name]
 
             # Get topocentric position using corrected SPICE call
             pos_topo_j2000 = topocentric_vec_j2000(
@@ -325,10 +355,27 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
             else:
                 out_lon = tropical_lon
 
+            # Calculate speed (degrees/day)
+            try:
+                speed = estimate_longitude_speed(body_id, et, chart.latitude, chart.longitude, chart.elevation)
+            except Exception:
+                speed = None  # If speed calculation fails, continue without it
+
+            # Populate UI-ready fields
+            sign, degree_in_sign = zodiac_from_longitude(out_lon)
+            D, M, S = dms_from_degrees(degree_in_sign)
+
             results[name] = PlanetPosition(
                 longitude=round(out_lon, 6),
                 latitude=round(ecl_pos["latitude"], 6),
-                distance=round(ecl_pos["distance"], 8)
+                distance=round(ecl_pos["distance"], 8),
+                sign=sign,
+                degree=round(degree_in_sign, 6),
+                degrees=D,
+                minutes=M,
+                seconds=round(S, 2),
+                speed=round(speed, 6) if speed is not None else None,
+                is_retrograde=retro_from_speed(speed)
             )
 
             # Log individual body calculation
@@ -358,13 +405,10 @@ async def calculate_planetary_positions(request: Request, chart: ChartRequest) -
         error_latency_ms = (time.time() - start_time) * 1000
         log_calculation("ERROR", et or 0, frame, abcorr, chart.ayanamsa if chart.zodiac == "sidereal" else "tropical", error_latency_ms, False, str(e))
 
-        msg = str(e)
-        # Map SPICE time parse errors to 422 if anything slips through
-        if "SPICE(BADTIMESTRING)" in msg or "SPICE(INVALIDTIME)" in msg or "SPICE(UNPARSEDTIME)" in msg:
-            raise HTTPException(status_code=422, detail="Invalid birth_time format; use ISO 8601 with timezone (e.g. 2024-06-21T18:00:00Z)")
-
+        # Map error to user-friendly message
+        status_code, detail = map_error(e)
         print(f"Calculation error: {e}")
-        raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+        raise HTTPException(status_code=status_code, detail=detail)
 
 def _observer_pos_in_iau_earth(lat_deg: float, lon_deg: float, elev_m: float) -> np.ndarray:
     """Observer position in the IAU_EARTH body-fixed frame (km)."""
@@ -544,8 +588,104 @@ def _wrap(deg: float) -> float:
     x = deg % 360.0
     return x + 360.0 if x < 0 else x
 
+def _wrap360(x: float) -> float:
+    """Wrap angle to [0, 360)"""
+    v = x % 360.0
+    return v if v >= 0 else v + 360.0
+
 def _atan2d(y: float, x: float) -> float:
     return _wrap(math.degrees(math.atan2(y, x)))
+
+# UI-ready helper functions
+def zodiac_from_longitude(lon_deg: float) -> tuple[str, float]:
+    """Convert ecliptic longitude to zodiac sign and degree within sign"""
+    lon = _wrap360(lon_deg)
+    idx = int(lon // 30)
+    return SIGNS[idx], lon - 30.0 * idx
+
+def dms_from_degrees(deg: float) -> tuple[int, int, float]:
+    """Convert decimal degrees to degrees, minutes, seconds"""
+    d = int(deg)
+    m_full = abs(deg - d) * 60.0
+    m = int(m_full)
+    s = (m_full - m) * 60.0
+    return d, m, s
+
+def retro_from_speed(speed_deg_per_day: float | None) -> bool | None:
+    """Determine if body is retrograde based on longitudinal speed"""
+    if speed_deg_per_day is None:
+        return None
+    return speed_deg_per_day < 0
+
+def estimate_longitude_speed(body_id: str, et: float, lat: float, lon: float, elev: float) -> float:
+    """Estimate longitudinal speed in degrees/day using numeric differentiation"""
+    # Sample at t-12h and t+12h (1 day window total)
+    dt_seconds = 12 * 3600  # 12 hours in seconds
+    et0 = et - dt_seconds
+    et1 = et + dt_seconds
+
+    # Calculate positions
+    pos0 = topocentric_vec_j2000(body_id, et0, lat, lon, elev)
+    pos1 = topocentric_vec_j2000(body_id, et1, lat, lon, elev)
+
+    # Convert to ecliptic
+    ecl0 = convert_to_ecliptic_of_date_spice(pos0, et0)
+    ecl1 = convert_to_ecliptic_of_date_spice(pos1, et1)
+
+    # Calculate shortest angular distance (wrap-aware)
+    lon0, lon1 = ecl0["longitude"], ecl1["longitude"]
+    d = _wrap360(lon1 - lon0)
+    if d > 180.0:
+        d -= 360.0
+
+    # degrees per day
+    return d / 1.0
+
+# Aspect calculation
+ASPECTS = {
+    "conjunction": (0, 8),
+    "opposition": (180, 8),
+    "trine": (120, 6),
+    "square": (90, 6),
+    "sextile": (60, 4),
+}
+
+def angle_gap(a: float, b: float) -> float:
+    """Calculate shortest angular distance between two angles"""
+    d = abs(_wrap360(a) - _wrap360(b))
+    return d if d <= 180 else 360 - d
+
+def calc_aspects(positions: Dict[str, PlanetPosition]) -> List[Dict[str, Any]]:
+    """Calculate aspects between all planet pairs"""
+    names = list(positions.keys())
+    results = []
+    for i, p1 in enumerate(names):
+        for p2 in names[i+1:]:
+            gap = angle_gap(positions[p1].longitude, positions[p2].longitude)
+            for aspect_name, (target, orb) in ASPECTS.items():
+                if abs(gap - target) <= orb:
+                    results.append({
+                        "p1": p1,
+                        "p2": p2,
+                        "type": aspect_name,
+                        "angle_deg": round(gap, 2),
+                        "orb_deg": round(abs(gap - target), 2)
+                    })
+    return results
+
+# Error mapping
+def map_error(e: Exception) -> tuple[int, str]:
+    """Map SPICE errors to user-friendly HTTP errors"""
+    m = str(e)
+    if "SPKINSUFFDATA" in m or "outside the bounds" in m or "insufficient ephemeris data" in m.lower():
+        return 400, "Date outside supported ephemeris range (1550-2650)"
+    if "BADTIMESTRING" in m or "INVALIDTIME" in m or "time format" in m.lower():
+        return 422, "Invalid date/time format. Use ISO 8601 with timezone (e.g., 2024-06-21T18:00:00Z)"
+    if "SPICE(SPKINSUFFDATA)" in m:
+        return 400, "Ephemeris data insufficient for requested date"
+    if "SPICE(NOFRAMECONNECT)" in m:
+        return 500, "Frame transformation not available"
+    return 500, "Calculation error occurred"
 
 def _obliquity_deg(jd_tt_like: float) -> float:
     # Extract obliquity calculation from existing convert_to_ecliptic_of_date_spice function
@@ -918,6 +1058,81 @@ async def houses(req: HousesRequest):
         ayanamsa_deg=round(ayanamsa_deg, 6) if ayanamsa_deg is not None else None,
         asc=round(asc, 6), mc=round(mc, 6), cusps=[round(c, 6) for c in cusps]
     )
+
+@limiter.limit("10/minute")
+@app.post("/v1/chart")
+async def chart(request: Request, chart_req: ChartRequest):
+    """Combined endpoint: planets + houses + aspects in one response"""
+    try:
+        # Calculate planets
+        planets_response = await calculate_planetary_positions(request, chart_req)
+
+        # Calculate houses
+        houses_req = HousesRequest(
+            birth_time=chart_req.birth_time,
+            latitude=chart_req.latitude,
+            longitude=chart_req.longitude,
+            elevation=chart_req.elevation,
+            zodiac=chart_req.zodiac,
+            ayanamsa=chart_req.ayanamsa,
+            system="placidus" if abs(chart_req.latitude) <= 66.5 else "whole-sign",
+            mc_hemisphere="south"
+        )
+        houses_response = await houses(houses_req)
+
+        # Calculate aspects
+        aspects = calc_aspects(planets_response.data)
+
+        return {
+            "planets": planets_response.data,
+            "houses": houses_response,
+            "aspects": aspects,
+            "meta": planets_response.meta
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        status_code, detail = map_error(e)
+        raise HTTPException(status_code=status_code, detail=detail)
+
+@limiter.limit("10/minute")
+@app.post("/v1/calculate/csv")
+async def calculate_csv(request: Request, chart_req: ChartRequest):
+    """Export planetary positions as CSV"""
+    try:
+        # Calculate planets
+        planets_response = await calculate_planetary_positions(request, chart_req)
+
+        # Create CSV
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["Body", "Longitude", "Latitude", "Distance", "Sign", "Degree", "DMS", "Speed", "Retrograde"])
+
+        for name, pos in planets_response.data.items():
+            dms_str = f"{pos.degrees}°{pos.minutes}′{pos.seconds:.2f}″" if pos.degrees is not None else ""
+            writer.writerow([
+                name,
+                pos.longitude,
+                pos.latitude,
+                pos.distance,
+                pos.sign or "",
+                pos.degree if pos.degree is not None else "",
+                dms_str,
+                pos.speed if pos.speed is not None else "",
+                pos.is_retrograde if pos.is_retrograde is not None else ""
+            ])
+
+        buf.seek(0)
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=chart.csv"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        status_code, detail = map_error(e)
+        raise HTTPException(status_code=status_code, detail=detail)
 
 if __name__ == "__main__":
     import os

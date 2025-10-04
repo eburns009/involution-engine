@@ -1,104 +1,158 @@
-# Render.com Deployment Guide
+# Render Deployment Guide
 
-## Option A: Docker Deploy (Recommended)
+## Quick Deploy (One-Click Blueprint)
 
-**1. Create `render.yaml` (already included):**
+1. **Connect GitHub to Render**
+   - Go to [render.com](https://render.com)
+   - Click "New +" → "Blueprint"
+   - Select this repository
+   - Render will auto-detect `render.yaml` and create both services
 
-```yaml
-services:
-  - type: web
-    name: involution-spice
-    env: docker
-    plan: starter
-    autoDeploy: true
-    healthCheckPath: /health
-    envVars:
-      - key: ALLOWED_ORIGINS
-        value: https://your-ui.example
+2. **After API deploys (spice-api)**
+   - Copy the API URL from Render dashboard (e.g., `https://spice-api-xyz.onrender.com`)
+   - Update these locations with the actual URL:
+     - `render.yaml` line 23: `ALLOWED_ORIGINS` value
+     - `render.yaml` line 33: `NEXT_PUBLIC_ENGINE_BASE` value
+     - `.env.production`: `NEXT_PUBLIC_ENGINE_BASE`
+   - Commit changes to trigger redeploy
+
+3. **Verify Deployment**
+   ```bash
+   # Check API health
+   curl https://spice-api-xyz.onrender.com/health
+
+   # Expected response: {"status":"healthy", "data": {...}}
+   ```
+
+4. **Open UI**
+   - Visit `https://research-ui-xyz.onrender.com/research`
+   - Try Fort Knox preset (1962-07-02 23:33:00)
+   - DevTools → Network should show API calls to `spice-api-xyz.onrender.com`
+
+---
+
+## Manual Deploy (Alternative)
+
+If you prefer manual setup instead of Blueprint:
+
+### 1. Deploy API First
+
+**Render Dashboard → New Web Service**
+- **Name**: `spice-api`
+- **Environment**: Docker
+- **Dockerfile Path**: `./services/spice/Dockerfile`
+- **Docker Context**: `.` (repo root)
+- **Health Check Path**: `/health`
+- **Plan**: Starter ($7/mo)
+
+**Environment Variables**:
+```
+ENGINE_KERNEL_BUNDLE=de440-modern
+LOG_LEVEL=INFO
+WORKERS=2
+ALLOWED_ORIGINS=https://research-ui.onrender.com,http://localhost:3000
+DISABLE_RATE_LIMIT=0
 ```
 
-**2. Deploy steps:**
+**Build Settings**:
+- Auto-deploy: Yes
+- Branch: `main`
 
-1. Connect GitHub repo to Render
-2. Service will auto-deploy from `main` branch
-3. Dockerfile already configured with gunicorn multi-process
-4. Kernels download automatically during build
+---
 
-## Option B: Native Python Deploy
+### 2. Deploy UI Second
 
-**1. Alternative `render.yaml` for native:**
+**Render Dashboard → New Web Service**
+- **Name**: `research-ui`
+- **Environment**: Node
+- **Build Command**: `npm ci && npm run build`
+- **Start Command**: `npm run start`
+- **Plan**: Starter ($7/mo)
 
-```yaml
-services:
-  - type: web
-    name: involution-spice
-    env: python
-    plan: starter
-    autoDeploy: true
-    region: oregon
-    rootDir: services/spice
-    buildCommand: |
-      pip install -r requirements.txt
-      bash download_kernels.sh
-    startCommand: >
-      gunicorn main:app
-      -k uvicorn.workers.UvicornWorker
-      --workers 2 --bind 0.0.0.0:$PORT --timeout 30
-    healthCheckPath: /health
-    envVars:
-      - key: ALLOWED_ORIGINS
-        value: https://your-ui.example
+**Environment Variables** (update URL after API is live):
+```
+NEXT_PUBLIC_ENGINE_BASE=https://spice-api-xyz.onrender.com
+NODE_ENV=production
 ```
 
-## Post-Deploy Verification
+---
 
-**Replace with your actual Render hostname:**
+## Troubleshooting
 
+### API fails at startup
+**Symptom**: `/health` returns 500 or service crashes
+**Fix**: Check logs for "Metakernel not found" → kernels didn't copy into image
 ```bash
-BASE="https://involution-spice.onrender.com"
-
-# Health check
-curl -s "$BASE/health" | jq .
-
-# Full calculation test
-curl -s -X POST "$BASE/calculate" \
-  -H 'content-type: application/json' \
-  -d '{
-    "birth_time": "2024-06-21T18:00:00Z",
-    "latitude": 37.7749,
-    "longitude": -122.4194,
-    "elevation": 50,
-    "ayanamsa": "lahiri"
-  }' | jq .
+# Test Docker build locally first
+cd /workspaces/involution-engine
+docker build -f services/spice/Dockerfile -t spice-test .
+docker run -p 8000:8000 spice-test
+curl http://localhost:8000/health
 ```
 
-## Expected Responses
-
-**Health check:**
-```json
-{
-  "status": "ok",
-  "kernels": 5,
-  "spice_version": "CSPICE_N0067",
-  "coordinate_system": "ecliptic_of_date"
-}
+### CORS errors in browser console
+**Symptom**: `Access-Control-Allow-Origin` errors
+**Fix**: Verify `ALLOWED_ORIGINS` env var in API includes UI URL
+```bash
+# In Render dashboard → spice-api → Environment
+ALLOWED_ORIGINS=https://research-ui-xyz.onrender.com,http://localhost:3000
 ```
 
-**Calculation response should include:**
-- `data.Sun.longitude` around 66°
-- `meta.ecliptic_frame` = "ECLIPDATE"
-- `meta.service_version` = "1.0.0"
+### UI can't connect to API
+**Symptom**: Network tab shows 404s or requests to wrong host
+**Fix**: Check `NEXT_PUBLIC_ENGINE_BASE` is set correctly
+```bash
+# In Render dashboard → research-ui → Environment
+NEXT_PUBLIC_ENGINE_BASE=https://spice-api-xyz.onrender.com
 
-## Environment Configuration
+# Rebuild UI after changing env vars (they're baked at build time)
+```
 
-**Set in Render dashboard:**
-- `ALLOWED_ORIGINS` = your UI domain (no wildcards in prod)
-- Leave `DISABLE_RATE_LIMIT` unset (enables rate limiting)
+### Cold starts (15-30s delay)
+**Expected**: Free/Starter plans spin down after 15min inactivity
+**Fix**: Upgrade to Standard plan ($25/mo) for always-on instances
 
-## Monitoring Setup
+### Kernel coverage errors (historical dates)
+**Symptom**: 400 errors for dates before 1650 or after 2650
+**Fix**: Check `ENGINE_KERNEL_BUNDLE` is set to `de440-modern` (not `de440-full`)
+- `de440-modern`: 1550-2650 (faster, smaller)
+- `de440-full`: 1650-2650 (research-grade)
 
-1. **GitHub repository variables:**
-   - Settings → Secrets and variables → Actions → Variables
-   - Add `SPICE_URL` = `https://your-service.onrender.com`
+---
 
-2. **Nightly smoke tests** will run automatically via GitHub Actions
+## Cost Estimate
+
+- **API**: Starter ($7/mo) or Standard ($25/mo for always-on)
+- **UI**: Starter ($7/mo)
+- **Total**: $14-32/mo
+
+Free tier: 750 hours/mo (good for testing, not production)
+
+---
+
+## Post-Deploy Checklist
+
+- [ ] API `/health` returns 200 with kernel info
+- [ ] UI loads at `/research`
+- [ ] Fort Knox preset calculates successfully
+- [ ] No CORS errors in browser console
+- [ ] Network tab shows requests to correct API domain
+- [ ] Tropical/Sidereal toggle works
+- [ ] Custom date/location inputs work
+
+---
+
+## Next Steps
+
+1. **Add Redis** (optional, Phase 2):
+   - Render → New Redis instance
+   - Add `REDIS_URL` env var to API
+   - Enables distributed caching + rate limiting
+
+2. **Set up monitoring**:
+   - `/metrics` endpoint → Prometheus/Grafana
+   - Render health checks → auto-restart on failure
+
+3. **Custom domain** (optional):
+   - research.yourdomain.com → research-ui
+   - api.yourdomain.com → spice-api
