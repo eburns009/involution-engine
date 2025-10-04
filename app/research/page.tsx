@@ -19,6 +19,7 @@ const FormZ = z.object({
   longitude: z.coerce.number().gte(-180).lte(180),
   elevation: z.coerce.number().default(0),
   ayanamsa: AyanamsaZ.default('lahiri'),
+  timezone_override: z.string().optional(),
 });
 type FormT = z.infer<typeof FormZ>;
 
@@ -36,6 +37,7 @@ export default function ResearchUI() {
     longitude: Number(params.get('lon')) || -122.4194,
     elevation: Number(params.get('elev')) || 50,
     ayanamsa: (params.get('ayanamsa') as 'lahiri' | 'fagan_bradley') || 'lahiri',
+    timezone_override: params.get('tz') || '',
   } as FormT;
 
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<FormT>({
@@ -68,7 +70,8 @@ export default function ResearchUI() {
       const timeResolution = await resolveLocalToUtc(
         data.birth_time_local,
         data.latitude,
-        data.longitude
+        data.longitude,
+        data.timezone_override || undefined
       );
 
       // Step 2: Calculate chart with resolved UTC time
@@ -103,6 +106,7 @@ export default function ResearchUI() {
       longitude: -85.949127,
       elevation: 0,
       ayanamsa: 'fagan_bradley',
+      timezone_override: 'America/Chicago',
     });
   };
 
@@ -238,19 +242,34 @@ export default function ResearchUI() {
                   </div>
                 </div>
 
-                {/* Ayanamsa */}
-                <div className="grid gap-1">
-                  <label className="text-sm font-medium text-fg">
-                    Ayanāṁśa System
-                    <span className="ml-1 text-muted" title="Sidereal zodiac offset calculation method">ℹ️</span>
-                  </label>
-                  <select
-                    className="w-full rounded-lg border border-muted bg-bg px-3 py-2 text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
-                    {...register('ayanamsa')}
-                  >
-                    <option value="lahiri">Lahiri (Chitrapaksha, 285 CE epoch)</option>
-                    <option value="fagan_bradley">Fagan–Bradley (fixed to Aldebaran)</option>
-                  </select>
+                {/* Ayanamsa and Timezone */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label className="text-sm font-medium text-fg">
+                      Ayanāṁśa System
+                      <span className="ml-1 text-muted" title="Sidereal zodiac offset calculation method">ℹ️</span>
+                    </label>
+                    <select
+                      className="w-full rounded-lg border border-muted bg-bg px-3 py-2 text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                      {...register('ayanamsa')}
+                    >
+                      <option value="lahiri">Lahiri (Chitrapaksha, 285 CE epoch)</option>
+                      <option value="fagan_bradley">Fagan–Bradley (fixed to Aldebaran)</option>
+                    </select>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label className="text-sm font-medium text-fg">
+                      Timezone Override
+                      <span className="ml-1 text-muted" title="Optional: Manually specify timezone (e.g., America/Chicago). Leave empty for auto-detection.">ℹ️</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Auto-detect (or e.g., America/Chicago)"
+                      className="w-full rounded-lg border border-muted bg-bg px-3 py-2 text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                      {...register('timezone_override')}
+                    />
+                  </div>
                 </div>
 
                 {/* Actions */}

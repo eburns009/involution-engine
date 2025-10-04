@@ -1152,6 +1152,51 @@ class TimeResolveResponse(BaseModel):
 # Global timezone finder (initialize once)
 tf = TimezoneFinder()
 
+def get_historical_timezone(lat: float, lon: float) -> Optional[str]:
+    """
+    Get timezone with historical accuracy using regional IANA timezones.
+
+    Falls back to timezonefinder for areas without special handling.
+    Prioritizes state/region-specific timezones that have accurate historical rules.
+    """
+    # Kentucky - complex timezone history
+    if 36.5 < lat < 39.5 and -89.5 < lon < -81.5:
+        # Western Kentucky (west of ~85°W) - historically Central Time
+        if lon < -85.0:
+            return "America/Kentucky/Louisville"
+        # Eastern Kentucky - historically Eastern Time
+        else:
+            return "America/Kentucky/Monticello"
+
+    # Indiana - complex timezone history
+    elif 37.5 < lat < 42.0 and -88.0 < lon < -84.5:
+        if lon < -86.0:
+            # Western Indiana - historically Central
+            return "America/Indiana/Knox"
+        elif lon < -85.0:
+            # Central Indiana
+            return "America/Indiana/Indianapolis"
+        else:
+            # Eastern Indiana
+            return "America/Indiana/Vevay"
+
+    # Michigan - Upper Peninsula has different rules
+    elif 45.0 < lat < 48.5 and -90.5 < lon < -83.5:
+        if lon < -87.0:
+            return "America/Menominee"  # Western UP - Central
+        else:
+            return "America/Detroit"  # Eastern Michigan
+
+    # North Dakota - some counties historically followed Mountain Time
+    elif 45.5 < lat < 49.5 and -104.5 < lon < -96.5:
+        if lon < -101.0:
+            return "America/North_Dakota/New_Salem"
+        else:
+            return "America/Chicago"
+
+    # For all other areas, use timezonefinder (modern boundaries, but best we have)
+    return tf.timezone_at(lat=lat, lng=lon)
+
 @limiter.limit("60/minute")
 @app.post("/v1/time/resolve", response_model=TimeResolveResponse)
 async def resolve_time(request: Request, req: TimeResolveRequest) -> TimeResolveResponse:
@@ -1178,7 +1223,8 @@ async def resolve_time(request: Request, req: TimeResolveRequest) -> TimeResolve
                     detail=f"Invalid timezone: {req.timezone_override}. Must be a valid IANA timezone name."
                 )
         else:
-            tz_name = tf.timezone_at(lat=req.latitude, lng=req.longitude)
+            # Use regional IANA timezones for accurate historical data
+            tz_name = get_historical_timezone(req.latitude, req.longitude)
 
             if not tz_name:
                 raise HTTPException(
