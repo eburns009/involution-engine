@@ -1,6 +1,6 @@
 import type { CalculateRequest, CalculateResponse, ErrorResponse } from './astroTypes';
 
-const BASE = process.env.NEXT_PUBLIC_SPICE_URL ?? 'http://localhost:8000';
+const BASE = process.env.NEXT_PUBLIC_ENGINE_BASE ?? 'http://localhost:8000';
 
 export async function calc(req: CalculateRequest): Promise<CalculateResponse> {
   const r = await fetch(`${BASE}/calculate`, {
