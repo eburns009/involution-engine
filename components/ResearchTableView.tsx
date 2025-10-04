@@ -57,7 +57,7 @@ function getSignAndDegree(lon: number): { sign: string; deg: number } {
 }
 
 export default function ResearchTableView({ data, onExport }: Props) {
-  const [angleFormat, setAngleFormat] = useState<AngleFormat>('decimal');
+  const [angleFormat, setAngleFormat] = useState<AngleFormat>('dms');
   const [precision, setPrecision] = useState(4);
   const [showMetadata, setShowMetadata] = useState(true);
   const [columnVisibility, setColumnVisibility] = useState({
