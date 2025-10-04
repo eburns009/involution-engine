@@ -56,6 +56,19 @@ function getSignAndDegree(lon: number): { sign: string; deg: number } {
   };
 }
 
+function formatDegreeInSign(deg: number, format: AngleFormat = 'decimal', precision: number = 4): string {
+  if (format === 'decimal') {
+    return `${deg.toFixed(precision)}°`;
+  }
+
+  // DMS format
+  const d = Math.floor(deg);
+  const minFull = (deg - d) * 60;
+  const m = Math.floor(minFull);
+  const s = Math.round((minFull - m) * 60);
+  return `${d}° ${String(m).padStart(2, '0')}′ ${String(s).padStart(2, '0')}″`;
+}
+
 export default function ResearchTableView({ data, onExport }: Props) {
   const [angleFormat, setAngleFormat] = useState<AngleFormat>('dms');
   const [precision, setPrecision] = useState(4);
@@ -295,7 +308,7 @@ export default function ResearchTableView({ data, onExport }: Props) {
                   )}
                   {columnVisibility.sign && (
                     <td className="px-4 py-3 text-fg">
-                      {sign} {deg.toFixed(2)}°
+                      {sign} {formatDegreeInSign(deg, angleFormat, precision)}
                     </td>
                   )}
                 </tr>
