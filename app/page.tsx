@@ -14,10 +14,16 @@ export default function Home() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-x-6">
             <Link
-              href="/ephemeris"
+              href="/research"
               className="rounded-md bg-accent px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent transition-opacity"
             >
-              Calculate Ephemeris
+              Research UI
+            </Link>
+            <Link
+              href="/ephemeris"
+              className="text-sm font-semibold leading-6 text-fg hover:text-accent transition-colors"
+            >
+              Simple Calculator <span aria-hidden="true">→</span>
             </Link>
             <a
               href="https://github.com/eburns009/involution-engine"
@@ -25,7 +31,7 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              View source <span aria-hidden="true">→</span>
+              GitHub
             </a>
           </div>
         </div>
