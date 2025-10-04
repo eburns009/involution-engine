@@ -52,9 +52,12 @@ dist/
 build/
 *.egg-info/
 
-# SPICE kernels (large files, download at runtime)
-services/spice/kernels/*
-!services/spice/kernels/involution.tm
+# Docker volumes and data directories
+docker/
+.venv/
+
+# SPICE kernels - INCLUDE these for production builds
+# (kernels/ at repo root should be copied into Docker image)
 
 # Documentation and README files
 *.md
