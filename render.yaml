@@ -20,7 +20,7 @@ services:
       - key: WORKERS
         value: 2
       - key: ALLOWED_ORIGINS
-        value: https://research-ui-d5qk.onrender.com,https://research-ui.onrender.com,http://localhost:3000
+        value: https://research-ui-tayx.onrender.com,http://localhost:3000
       - key: DISABLE_RATE_LIMIT
         value: 0
 
