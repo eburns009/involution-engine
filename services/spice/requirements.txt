@@ -4,6 +4,7 @@ uvicorn[standard]>=0.23.2
 gunicorn>=21.2.0
 spiceypy==6.0.0
 numpy>=1.26.4,<2
+scipy>=1.11.0
 pydantic>=2.5.3,<3
 slowapi==0.1.9
 pytest==8.4.2
