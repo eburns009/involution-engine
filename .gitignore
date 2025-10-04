@@ -142,11 +142,11 @@ services/spice/kernels/**
 __pycache__/
 node_modules/
 
-# SPICE kernels (downloaded by scripts)
+# SPICE kernels - MUST be committed for Render deployment
+# (Production builds require kernels baked into Docker image)
+# Keeping old exclusions for services/spice/kernels only (development path)
 services/spice/kernels/spk/
 services/spice/kernels/pck/*.bpc
-kernels/spk/
-kernels/pck/*.bpc
 .secrets.baseline
 .git-objects.txt
 diagnostics/
